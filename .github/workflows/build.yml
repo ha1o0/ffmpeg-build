@@ -1,4 +1,4 @@
-name: Build Minimal FFmpeg (All Platforms)
+name: Build Minimal FFmpeg
 
 on:
   workflow_dispatch:
@@ -6,12 +6,11 @@ on:
 env:
   FFMPEG_VERSION: n6.1
 
+############################################################
+# Linux + Windows
+############################################################
+
 jobs:
-
-############################################################
-# Linux + Windows (x86_64 + arm64)
-############################################################
-
   build-linux-windows:
     runs-on: ubuntu-latest
 
@@ -21,7 +20,6 @@ jobs:
           - linux-x86_64
           - linux-arm64
           - windows-x86_64
-          - windows-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +49,11 @@ jobs:
 
           case "${{ matrix.target }}" in
 
+          ################################################
+          # Linux x86_64
+          ################################################
           linux-x86_64)
+
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -74,11 +76,16 @@ jobs:
               --disable-network \
               --disable-ffplay \
               --disable-ffprobe
+
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-x86_64
             ;;
 
+          ################################################
+          # Linux arm64
+          ################################################
           linux-arm64)
+
             ./configure \
               --arch=arm64 \
               --cpu=generic \
@@ -104,11 +111,16 @@ jobs:
               --disable-network \
               --disable-ffplay \
               --disable-ffprobe
+
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-arm64
             ;;
 
+          ################################################
+          # Windows x86_64
+          ################################################
           windows-x86_64)
+
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -132,38 +144,9 @@ jobs:
               --disable-network \
               --disable-ffplay \
               --disable-ffprobe
+
             make -j$(nproc)
             cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
-            ;;
-
-          windows-arm64)
-            ./configure \
-              --arch=arm64 \
-              --cpu=generic \
-              --target-os=mingw32 \
-              --cross-prefix=aarch64-w64-mingw32- \
-              --disable-x86asm \
-              --disable-inline-asm \
-              --disable-everything \
-              --enable-ffmpeg \
-              --enable-protocol=file \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,asf,ogg,rm \
-              --enable-decoder=h264,hevc,vp9,av1,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv40 \
-              --enable-parser=h264,hevc,mpeg4video,av1 \
-              --enable-encoder=mjpeg,png \
-              --enable-muxer=image2 \
-              --enable-filter=scale \
-              --enable-avcodec \
-              --enable-avformat \
-              --enable-avutil \
-              --enable-swscale \
-              --disable-doc \
-              --disable-debug \
-              --disable-network \
-              --disable-ffplay \
-              --disable-ffprobe
-            make -j$(nproc)
-            cp ffmpeg.exe ../ffmpeg-windows-arm64.exe
             ;;
 
           esac
@@ -173,9 +156,10 @@ jobs:
         with:
           name: ffmpeg-${{ matrix.target }}
           path: ffmpeg-*
-          
+
+
 ############################################################
-# macOS (x86_64 + arm64)
+# macOS (arm64 + x86_64)
 ############################################################
 
   build-macos:
@@ -205,8 +189,8 @@ jobs:
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
 
             ./configure \
-              --arch=x86_64 \
-              --cpu=generic \
+              --cc="clang -arch x86_64" \
+              --cxx="clang++ -arch x86_64" \
               --target-os=darwin \
               --disable-everything \
               --enable-ffmpeg \
@@ -233,8 +217,8 @@ jobs:
           else
 
             ./configure \
-              --arch=arm64 \
-              --cpu=generic \
+              --cc="clang -arch arm64" \
+              --cxx="clang++ -arch arm64" \
               --target-os=darwin \
               --disable-x86asm \
               --disable-inline-asm \
