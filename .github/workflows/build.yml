@@ -1,4 +1,4 @@
-name: Build Minimal FFmpeg (All Platforms)
+name: Build Minimal FFmpeg (All OS + All Arch)
 
 on:
   workflow_dispatch:
@@ -8,9 +8,9 @@ env:
 
 jobs:
 
-  ############################################
-  # Linux + Windows (cross compile)
-  ############################################
+  ########################################################
+  # Linux + Windows (x86_64 + arm64)
+  ########################################################
   build-linux-windows:
     runs-on: ubuntu-latest
 
@@ -24,8 +24,10 @@ jobs:
             build-essential \
             nasm \
             yasm \
+            pkg-config \
             mingw-w64 \
-            pkg-config
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
 
       - name: Clone FFmpeg
         run: |
@@ -33,9 +35,9 @@ jobs:
           cd FFmpeg
           git checkout $FFMPEG_VERSION
 
-      ########################################
-      # Build Linux x86_64
-      ########################################
+      ####################################################
+      # Linux x86_64
+      ####################################################
       - name: Build Linux x86_64
         run: |
           cd FFmpeg
@@ -66,9 +68,44 @@ jobs:
           make -j$(nproc)
           cp ffmpeg ../ffmpeg-linux-x86_64
 
-      ########################################
-      # Build Windows x86_64
-      ########################################
+      ####################################################
+      # Linux arm64 (cross compile)
+      ####################################################
+      - name: Build Linux arm64
+        run: |
+          cd FFmpeg
+          make distclean
+
+          ./configure \
+            --arch=aarch64 \
+            --target-os=linux \
+            --cross-prefix=aarch64-linux-gnu- \
+            --enable-cross-compile \
+            --disable-everything \
+            --enable-ffmpeg \
+            --enable-protocol=file \
+            --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,asf,ogg,rm \
+            --enable-decoder=h264,hevc,vp9,av1,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv40 \
+            --enable-parser=h264,hevc,mpeg4video,av1 \
+            --enable-encoder=mjpeg,png \
+            --enable-muxer=image2 \
+            --enable-filter=scale \
+            --enable-avcodec \
+            --enable-avformat \
+            --enable-avutil \
+            --enable-swscale \
+            --disable-doc \
+            --disable-debug \
+            --disable-network \
+            --disable-ffplay \
+            --disable-ffprobe
+
+          make -j$(nproc)
+          cp ffmpeg ../ffmpeg-linux-arm64
+
+      ####################################################
+      # Windows x86_64
+      ####################################################
       - name: Build Windows x86_64
         run: |
           cd FFmpeg
@@ -78,6 +115,7 @@ jobs:
             --arch=x86_64 \
             --target-os=mingw32 \
             --cross-prefix=x86_64-w64-mingw32- \
+            --enable-cross-compile \
             --disable-everything \
             --enable-ffmpeg \
             --enable-protocol=file \
@@ -100,18 +138,55 @@ jobs:
           make -j$(nproc)
           cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
 
-      - name: Upload Linux/Windows artifacts
+      ####################################################
+      # Windows arm64 (cross compile)
+      ####################################################
+      - name: Build Windows arm64
+        run: |
+          cd FFmpeg
+          make distclean
+
+          ./configure \
+            --arch=aarch64 \
+            --target-os=mingw32 \
+            --cross-prefix=aarch64-w64-mingw32- \
+            --enable-cross-compile \
+            --disable-everything \
+            --enable-ffmpeg \
+            --enable-protocol=file \
+            --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,asf,ogg,rm \
+            --enable-decoder=h264,hevc,vp9,av1,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv40 \
+            --enable-parser=h264,hevc,mpeg4video,av1 \
+            --enable-encoder=mjpeg,png \
+            --enable-muxer=image2 \
+            --enable-filter=scale \
+            --enable-avcodec \
+            --enable-avformat \
+            --enable-avutil \
+            --enable-swscale \
+            --disable-doc \
+            --disable-debug \
+            --disable-network \
+            --disable-ffplay \
+            --disable-ffprobe
+
+          make -j$(nproc)
+          cp ffmpeg.exe ../ffmpeg-windows-arm64.exe
+
+      - name: Upload Linux + Windows
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-linux-windows
           path: |
             ffmpeg-linux-x86_64
+            ffmpeg-linux-arm64
             ffmpeg-windows-x86_64.exe
+            ffmpeg-windows-arm64.exe
 
 
-  ############################################
+  ########################################################
   # macOS (Intel + Apple Silicon)
-  ############################################
+  ########################################################
   build-macos:
     runs-on: macos-latest
 
@@ -127,17 +202,11 @@ jobs:
           cd FFmpeg
           git checkout $FFMPEG_VERSION
 
-      ########################################
-      # macOS x86_64
-      ########################################
       - name: Build macOS x86_64
         run: |
           cd FFmpeg
           make distclean || true
-
-          ./configure \
-            --arch=x86_64 \
-            --target-os=darwin \
+          ./configure --arch=x86_64 --target-os=darwin \
             --disable-everything \
             --enable-ffmpeg \
             --enable-protocol=file \
@@ -151,26 +220,16 @@ jobs:
             --enable-avformat \
             --enable-avutil \
             --enable-swscale \
-            --disable-doc \
-            --disable-debug \
-            --disable-network \
-            --disable-ffplay \
-            --disable-ffprobe
-
+            --disable-doc --disable-debug --disable-network \
+            --disable-ffplay --disable-ffprobe
           make -j$(sysctl -n hw.ncpu)
           cp ffmpeg ../ffmpeg-macos-x86_64
 
-      ########################################
-      # macOS arm64
-      ########################################
       - name: Build macOS arm64
         run: |
           cd FFmpeg
           make distclean
-
-          ./configure \
-            --arch=arm64 \
-            --target-os=darwin \
+          ./configure --arch=arm64 --target-os=darwin \
             --disable-everything \
             --enable-ffmpeg \
             --enable-protocol=file \
@@ -184,16 +243,12 @@ jobs:
             --enable-avformat \
             --enable-avutil \
             --enable-swscale \
-            --disable-doc \
-            --disable-debug \
-            --disable-network \
-            --disable-ffplay \
-            --disable-ffprobe
-
+            --disable-doc --disable-debug --disable-network \
+            --disable-ffplay --disable-ffprobe
           make -j$(sysctl -n hw.ncpu)
           cp ffmpeg ../ffmpeg-macos-arm64
 
-      - name: Upload macOS artifacts
+      - name: Upload macOS
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-macos
