@@ -61,7 +61,7 @@ jobs:
               --target-os=linux \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file \
+              --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
@@ -74,7 +74,7 @@ jobs:
               --enable-swscale \
               --disable-doc \
               --disable-debug \
-              --disable-network \
+              --enable-network \
               --disable-ffplay \
               --disable-ffprobe
 
@@ -96,7 +96,7 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file \
+              --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
@@ -109,7 +109,7 @@ jobs:
               --enable-swscale \
               --disable-doc \
               --disable-debug \
-              --disable-network \
+              --enable-network \
               --disable-ffplay \
               --disable-ffprobe
 
@@ -129,7 +129,7 @@ jobs:
               --cross-prefix=x86_64-w64-mingw32- \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file \
+              --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
@@ -142,7 +142,7 @@ jobs:
               --enable-swscale \
               --disable-doc \
               --disable-debug \
-              --disable-network \
+              --enable-network \
               --disable-ffplay \
               --disable-ffprobe
 
@@ -198,7 +198,7 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file \
+              --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
@@ -211,7 +211,7 @@ jobs:
               --enable-swscale \
               --disable-doc \
               --disable-debug \
-              --disable-network \
+              --enable-network \
               --disable-ffplay \
               --disable-ffprobe
 
@@ -230,7 +230,7 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file \
+              --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
@@ -243,7 +243,7 @@ jobs:
               --enable-swscale \
               --disable-doc \
               --disable-debug \
-              --disable-network \
+              --enable-network \
               --disable-ffplay \
               --disable-ffprobe
 
