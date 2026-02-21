@@ -152,11 +152,21 @@ jobs:
 
           esac
 
+      - name: Compress binaries
+        run: |
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            zip ffmpeg-${{ matrix.target }}.zip ffmpeg-*.exe
+          else
+            tar czf ffmpeg-${{ matrix.target }}.tar.gz ffmpeg-*
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-${{ matrix.target }}
-          path: ffmpeg-*
+          path: |
+            *.zip
+            *.tar.gz
 
 
 ############################################################
@@ -252,8 +262,13 @@ jobs:
 
           fi
 
+      - name: Compress binaries
+        run: |
+          tar czf ffmpeg-macos-${{ matrix.arch }}.tar.gz ffmpeg-macos-*
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-macos-${{ matrix.arch }}
-          path: ffmpeg-macos-*
+          path: |
+            *.tar.gz
