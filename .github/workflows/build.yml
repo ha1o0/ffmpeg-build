@@ -5,6 +5,7 @@ on:
 
 env:
   FFMPEG_VERSION: n6.1
+  ZIMG_VERSION: release-3.0.5
 
 ############################################################
 # Linux + Windows
@@ -35,7 +36,10 @@ jobs:
             pkg-config \
             mingw-w64 \
             gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu
+            g++-aarch64-linux-gnu \
+            autoconf \
+            automake \
+            libtool
 
       - name: Clone FFmpeg
         run: |
@@ -45,9 +49,6 @@ jobs:
 
       - name: Configure & Build
         run: |
-          cd FFmpeg
-          make distclean || true
-
           case "${{ matrix.target }}" in
 
           ################################################
@@ -55,6 +56,22 @@ jobs:
           ################################################
           linux-x86_64)
 
+            # Build zimg
+            git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+            cd zimg-src
+            sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
+            sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
+            ./autogen.sh
+            ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=x86_64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
+            make -j$(nproc) install
+            cd ..
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig
+            export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
+            export PKG_CONFIG_ALLOW_CROSS=1
+            export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
+            pkg-config --modversion zimg || echo "zimg not found"
+
+            cd FFmpeg
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -65,9 +82,11 @@ jobs:
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-libzimg \
+              --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
-              --enable-filter=scale,format \
               --enable-avcodec \
               --enable-avformat \
               --enable-avutil \
@@ -76,7 +95,12 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe
+              --disable-ffprobe \
+              --pkg-config=pkg-config \
+              --pkg-config-flags="--static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib" \
+              --extra-libs="-lpthread -lm -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-x86_64
@@ -87,6 +111,22 @@ jobs:
           ################################################
           linux-arm64)
 
+            # Build zimg
+            git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+            cd zimg-src
+            sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
+            sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
+            ./autogen.sh
+            ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=aarch64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
+            make -j$(nproc) install
+            cd ..
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig
+            export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
+            export PKG_CONFIG_ALLOW_CROSS=1
+            export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
+            pkg-config --modversion zimg || echo "zimg not found"
+
+            cd FFmpeg
             ./configure \
               --arch=arm64 \
               --cpu=generic \
@@ -100,9 +140,11 @@ jobs:
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-libzimg \
+              --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
-              --enable-filter=scale,format \
               --enable-avcodec \
               --enable-avformat \
               --enable-avutil \
@@ -111,7 +153,12 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe
+              --disable-ffprobe \
+              --pkg-config=pkg-config \
+              --pkg-config-flags="--static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib" \
+              --extra-libs="-lpthread -lm -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-arm64
@@ -122,6 +169,22 @@ jobs:
           ################################################
           windows-x86_64)
 
+            # Build zimg
+            git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+            cd zimg-src
+            sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
+            sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
+            ./autogen.sh
+            ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=x86_64-w64-mingw32 --disable-shared --enable-static --with-pic --disable-unit-test
+            make -j$(nproc) install
+            cd ..
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig
+            export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
+            export PKG_CONFIG_ALLOW_CROSS=1
+            export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
+            pkg-config --modversion zimg || echo "zimg not found"
+
+            cd FFmpeg
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -133,9 +196,11 @@ jobs:
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-libzimg \
+              --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
-              --enable-filter=scale,format \
               --enable-avcodec \
               --enable-avformat \
               --enable-avutil \
@@ -144,7 +209,12 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe
+              --disable-ffprobe \
+              --pkg-config=pkg-config \
+              --pkg-config-flags="--static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib" \
+              --extra-libs="-lstdc++ -lpthread"
 
             make -j$(nproc)
             cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
@@ -174,7 +244,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install nasm pkg-config
+        run: brew install nasm pkg-config automake libtool
 
       - name: Clone FFmpeg
         run: |
@@ -184,11 +254,15 @@ jobs:
 
       - name: Configure & Build
         run: |
-          cd FFmpeg
-          make distclean || true
-
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
 
+            # Build zimg
+            git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+            cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=x86_64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
+            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig
+
+            cd FFmpeg
+            make distclean || true
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -202,9 +276,11 @@ jobs:
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-libzimg \
+              --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
-              --enable-filter=scale,format \
               --enable-avcodec \
               --enable-avformat \
               --enable-avutil \
@@ -213,13 +289,20 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe
+              --disable-ffprobe --extra-libs="-lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
             cp ffmpeg ../ffmpeg-macos-x86_64
 
           else
 
+            # Build zimg
+            git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+            cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=arm64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
+            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig
+
+            cd FFmpeg
+            make distclean || true
             ./configure \
               --arch=arm64 \
               --cpu=generic \
@@ -234,9 +317,11 @@ jobs:
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-libzimg \
+              --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
-              --enable-filter=scale,format \
               --enable-avcodec \
               --enable-avformat \
               --enable-avutil \
@@ -245,7 +330,7 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe
+              --disable-ffprobe --extra-libs="-lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
             cp ffmpeg ../ffmpeg-macos-arm64
