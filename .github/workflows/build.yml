@@ -6,6 +6,7 @@ on:
 env:
   FFMPEG_VERSION: n6.1
   ZIMG_VERSION: release-3.0.5
+  DAV1D_VERSION: 1.4.1
 
 ############################################################
 # Linux + Windows
@@ -39,7 +40,9 @@ jobs:
             g++-aarch64-linux-gnu \
             autoconf \
             automake \
-            libtool
+            libtool \
+            ninja-build \
+            meson
 
       - name: Clone FFmpeg
         run: |
@@ -65,11 +68,23 @@ jobs:
             ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=x86_64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
             make -j$(nproc) install
             cd ..
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig
+
+            # Build dav1d
+            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+            cd dav1d-src
+            meson setup build --prefix=$GITHUB_WORKSPACE/dav1d-install --libdir=lib --default-library=static --buildtype=release
+            ninja -C build install
+            cd ..
+
+            # Setup PKG_CONFIG
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
+            export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+            
             pkg-config --modversion zimg || echo "zimg not found"
+            pkg-config --modversion dav1d || echo "dav1d not found"
 
             cd FFmpeg
             ./configure \
@@ -80,10 +95,11 @@ jobs:
               --enable-ffmpeg \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
+              --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
@@ -98,8 +114,8 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
               --extra-libs="-lpthread -lm -lstdc++"
 
@@ -121,11 +137,35 @@ jobs:
             ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=aarch64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
             make -j$(nproc) install
             cd ..
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig
+
+            # Build dav1d (Cross-compile)
+            echo "[binaries]" > cross_linux_arm64.txt
+            echo "c = 'aarch64-linux-gnu-gcc'" >> cross_linux_arm64.txt
+            echo "cpp = 'aarch64-linux-gnu-g++'" >> cross_linux_arm64.txt
+            echo "ar = 'aarch64-linux-gnu-ar'" >> cross_linux_arm64.txt
+            echo "strip = 'aarch64-linux-gnu-strip'" >> cross_linux_arm64.txt
+            echo "pkgconfig = 'pkg-config'" >> cross_linux_arm64.txt
+            echo "[host_machine]" >> cross_linux_arm64.txt
+            echo "system = 'linux'" >> cross_linux_arm64.txt
+            echo "cpu_family = 'aarch64'" >> cross_linux_arm64.txt
+            echo "cpu = 'aarch64'" >> cross_linux_arm64.txt
+            echo "endian = 'little'" >> cross_linux_arm64.txt
+
+            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+            cd dav1d-src
+            meson setup build --prefix=$GITHUB_WORKSPACE/dav1d-install --libdir=lib --cross-file ../cross_linux_arm64.txt --default-library=static --buildtype=release
+            ninja -C build install
+            cd ..
+
+            # Setup PKG_CONFIG
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
+            export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+
             pkg-config --modversion zimg || echo "zimg not found"
+            pkg-config --modversion dav1d || echo "dav1d not found"
 
             cd FFmpeg
             ./configure \
@@ -139,10 +179,11 @@ jobs:
               --enable-ffmpeg \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
+              --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
@@ -157,8 +198,8 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
               --extra-libs="-lpthread -lm -lstdc++"
 
@@ -180,11 +221,36 @@ jobs:
             ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=x86_64-w64-mingw32 --disable-shared --enable-static --with-pic --disable-unit-test
             make -j$(nproc) install
             cd ..
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig
+
+            # Build dav1d (Cross-compile)
+            echo "[binaries]" > cross_win_x64.txt
+            echo "c = 'x86_64-w64-mingw32-gcc'" >> cross_win_x64.txt
+            echo "cpp = 'x86_64-w64-mingw32-g++'" >> cross_win_x64.txt
+            echo "ar = 'x86_64-w64-mingw32-ar'" >> cross_win_x64.txt
+            echo "strip = 'x86_64-w64-mingw32-strip'" >> cross_win_x64.txt
+            echo "windres = 'x86_64-w64-mingw32-windres'" >> cross_win_x64.txt
+            echo "pkgconfig = 'pkg-config'" >> cross_win_x64.txt
+            echo "[host_machine]" >> cross_win_x64.txt
+            echo "system = 'windows'" >> cross_win_x64.txt
+            echo "cpu_family = 'x86_64'" >> cross_win_x64.txt
+            echo "cpu = 'x86_64'" >> cross_win_x64.txt
+            echo "endian = 'little'" >> cross_win_x64.txt
+
+            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+            cd dav1d-src
+            meson setup build --prefix=$GITHUB_WORKSPACE/dav1d-install --libdir=lib --cross-file ../cross_win_x64.txt --default-library=static --buildtype=release
+            ninja -C build install
+            cd ..
+
+            # Setup PKG_CONFIG
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
+            export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+
             pkg-config --modversion zimg || echo "zimg not found"
+            pkg-config --modversion dav1d || echo "dav1d not found"
 
             cd FFmpeg
             ./configure \
@@ -196,10 +262,11 @@ jobs:
               --enable-ffmpeg \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
+              --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
@@ -214,8 +281,8 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
               --extra-libs="-lstdc++ -lpthread"
 
@@ -247,7 +314,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install nasm pkg-config automake libtool
+        run: brew install nasm pkg-config automake libtool ninja meson
 
       - name: Clone FFmpeg
         run: |
@@ -262,7 +329,27 @@ jobs:
             # Build zimg
             git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
             cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=x86_64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig
+            
+            # Build dav1d
+            echo "[binaries]" > cross_mac_x86_64.txt
+            echo "c = ['clang', '-arch', 'x86_64']" >> cross_mac_x86_64.txt
+            echo "cpp = ['clang++', '-arch', 'x86_64']" >> cross_mac_x86_64.txt
+            echo "ar = 'ar'" >> cross_mac_x86_64.txt
+            echo "strip = 'strip'" >> cross_mac_x86_64.txt
+            echo "pkgconfig = 'pkg-config'" >> cross_mac_x86_64.txt
+            echo "[host_machine]" >> cross_mac_x86_64.txt
+            echo "system = 'darwin'" >> cross_mac_x86_64.txt
+            echo "cpu_family = 'x86_64'" >> cross_mac_x86_64.txt
+            echo "cpu = 'x86_64'" >> cross_mac_x86_64.txt
+            echo "endian = 'little'" >> cross_mac_x86_64.txt
+
+            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+            cd dav1d-src
+            meson setup build --prefix=$(pwd)/../dav1d-install --libdir=lib --cross-file ../cross_mac_x86_64.txt --default-library=static --buildtype=release
+            ninja -C build install
+            cd ..
+
+            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
 
             cd FFmpeg
             make distclean || true
@@ -277,10 +364,11 @@ jobs:
               --enable-ffmpeg \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
+              --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
@@ -292,7 +380,10 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe --extra-libs="-lpthread -lm -lstdc++"
+              --disable-ffprobe \
+              --extra-cflags="-I$(pwd)/../dav1d-install/include" \
+              --extra-ldflags="-L$(pwd)/../dav1d-install/lib" \
+              --extra-libs="-lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
             cp ffmpeg ../ffmpeg-macos-x86_64
@@ -302,7 +393,27 @@ jobs:
             # Build zimg
             git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
             cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=arm64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig
+            
+            # Build dav1d
+            echo "[binaries]" > cross_mac_arm64.txt
+            echo "c = ['clang', '-arch', 'arm64']" >> cross_mac_arm64.txt
+            echo "cpp = ['clang++', '-arch', 'arm64']" >> cross_mac_arm64.txt
+            echo "ar = 'ar'" >> cross_mac_arm64.txt
+            echo "strip = 'strip'" >> cross_mac_arm64.txt
+            echo "pkgconfig = 'pkg-config'" >> cross_mac_arm64.txt
+            echo "[host_machine]" >> cross_mac_arm64.txt
+            echo "system = 'darwin'" >> cross_mac_arm64.txt
+            echo "cpu_family = 'aarch64'" >> cross_mac_arm64.txt
+            echo "cpu = 'aarch64'" >> cross_mac_arm64.txt
+            echo "endian = 'little'" >> cross_mac_arm64.txt
+
+            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+            cd dav1d-src
+            meson setup build --prefix=$(pwd)/../dav1d-install --libdir=lib --cross-file ../cross_mac_arm64.txt --default-library=static --buildtype=release
+            ninja -C build install
+            cd ..
+
+            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
 
             cd FFmpeg
             make distclean || true
@@ -318,10 +429,11 @@ jobs:
               --enable-ffmpeg \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
+              --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
               --enable-encoder=mjpeg,png \
               --enable-muxer=image2 \
@@ -333,7 +445,10 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe --extra-libs="-lpthread -lm -lstdc++"
+              --disable-ffprobe \
+              --extra-cflags="-I$(pwd)/../dav1d-install/include" \
+              --extra-ldflags="-L$(pwd)/../dav1d-install/lib" \
+              --extra-libs="-lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
             cp ffmpeg ../ffmpeg-macos-arm64
