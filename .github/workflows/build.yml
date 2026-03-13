@@ -42,7 +42,8 @@ jobs:
             automake \
             libtool \
             ninja-build \
-            meson
+            meson \
+            zlib1g-dev
 
       - name: Clone FFmpeg
         run: |
@@ -69,6 +70,15 @@ jobs:
             make -j$(nproc) install
             cd ..
 
+            
+            
+                        # Build zlib
+            git clone --depth 1 -b v1.3.1 https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
+            make -j$(nproc) install
+            cd ..
+
             # Build dav1d
             git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
             cd dav1d-src
@@ -85,11 +95,12 @@ jobs:
             cd ..
 
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig:$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
             export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
             
             pkg-config --modversion zimg || echo "zimg not found"
@@ -104,8 +115,12 @@ jobs:
               --enable-ffmpeg \
               --enable-version3 \
               --enable-openssl \
-              --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
+              --enable-zlib \
+              --enable-protocol=file \
+              --enable-protocol=http \
+              --enable-protocol=https \
+              --enable-protocol=tcp \
+              --enable-protocol=tls \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
@@ -125,10 +140,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$ZLIB_INSTALL/include -I$OPENSSL_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$ZLIB_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lssl -lcrypto -ldl -lpthread -lm -lstdc++"
+              --extra-libs="-lssl -lcrypto -lz -ldl -lpthread -lm -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-x86_64
@@ -146,6 +161,13 @@ jobs:
             sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
             ./autogen.sh
             ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=aarch64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
+            make -j$(nproc) install
+            cd ..
+
+                        # Build zlib (Cross-compile)
+            git clone --depth 1 -b v1.3.1 https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            CHOST=aarch64-linux-gnu CC=aarch64-linux-gnu-gcc ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
             make -j$(nproc) install
             cd ..
 
@@ -177,11 +199,12 @@ jobs:
             cd ..
 
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig:$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
             export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
 
             pkg-config --modversion zimg || echo "zimg not found"
@@ -199,8 +222,12 @@ jobs:
               --enable-ffmpeg \
               --enable-version3 \
               --enable-openssl \
-              --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
+              --enable-zlib \
+              --enable-protocol=file \
+              --enable-protocol=http \
+              --enable-protocol=https \
+              --enable-protocol=tcp \
+              --enable-protocol=tls \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
@@ -220,10 +247,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$ZLIB_INSTALL/include -I$OPENSSL_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$ZLIB_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lssl -lcrypto -ldl -lpthread -lm -lstdc++"
+              --extra-libs="-lssl -lcrypto -lz -ldl -lpthread -lm -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-arm64
@@ -265,11 +292,12 @@ jobs:
             cd ..
 
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig:$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
 
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
@@ -304,8 +332,8 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$ZLIB_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
               --extra-libs="-lstdc++ -lpthread"
 
@@ -372,7 +400,7 @@ jobs:
             ninja -C build install
             cd ..
 
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig:$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
 
             cd FFmpeg
             make distclean || true
@@ -436,7 +464,7 @@ jobs:
             ninja -C build install
             cd ..
 
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig:$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
 
             cd FFmpeg
             make distclean || true
