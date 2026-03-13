@@ -76,27 +76,22 @@ jobs:
             ninja -C build install
             cd ..
 
-            # Build mbedtls
-            git clone --recursive -b v3.6.0 https://github.com/Mbed-TLS/mbedtls.git mbedtls-src
-            cd mbedtls-src
-            CFLAGS="-fPIC" make -j$(nproc) lib
-            # Manually "install" headers and libs to avoid submodule issues in the full 'install' target
-            mkdir -p $GITHUB_WORKSPACE/mbedtls-install/usr/local/include
-            mkdir -p $GITHUB_WORKSPACE/mbedtls-install/usr/local/lib
-            cp -r include/mbedtls include/psa $GITHUB_WORKSPACE/mbedtls-install/usr/local/include/
-            cp library/*.a $GITHUB_WORKSPACE/mbedtls-install/usr/local/lib/
-            # Generate a minimal pkg-config for FFmpeg (optional but safer)
+            # Build OpenSSL
+            git clone --depth 1 -b openssl-3.0.13 https://github.com/openssl/openssl.git openssl-src
+            cd openssl-src
+            ./config --prefix=$GITHUB_WORKSPACE/openssl-install --libdir=lib no-shared no-tests
+            make -j$(nproc)
+            make install_sw
             cd ..
 
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/mbedtls-install/usr/local/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
-            export MBEDTLS_INSTALL=$GITHUB_WORKSPACE/mbedtls-install/usr/local
+            export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
             
-            pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
 
@@ -108,7 +103,7 @@ jobs:
               --disable-everything \
               --enable-ffmpeg \
               --enable-version3 \
-              --enable-mbedtls \
+              --enable-openssl \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
@@ -130,10 +125,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$MBEDTLS_INSTALL/include -DDEFAULT_CA_FILE=\"/etc/ssl/certs/ca-certificates.crt\"" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$MBEDTLS_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lmbedtls -lmbedx509 -lmbedcrypto -lpthread -lm -lstdc++"
+              --extra-libs="-lssl -lcrypto -ldl -lpthread -lm -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-x86_64
@@ -173,24 +168,21 @@ jobs:
             ninja -C build install
             cd ..
 
-            # Build mbedtls (Cross-compile)
-            git clone --recursive -b v3.6.0 https://github.com/Mbed-TLS/mbedtls.git mbedtls-src
-            cd mbedtls-src
-            CC=aarch64-linux-gnu-gcc CFLAGS="-fPIC" make -j$(nproc) lib
-            # Manually "install" headers and libs
-            mkdir -p $GITHUB_WORKSPACE/mbedtls-install/usr/local/include
-            mkdir -p $GITHUB_WORKSPACE/mbedtls-install/usr/local/lib
-            cp -r include/mbedtls include/psa $GITHUB_WORKSPACE/mbedtls-install/usr/local/include/
-            cp library/*.a $GITHUB_WORKSPACE/mbedtls-install/usr/local/lib/
+            # Build OpenSSL (Cross-compile)
+            git clone --depth 1 -b openssl-3.0.13 https://github.com/openssl/openssl.git openssl-src
+            cd openssl-src
+            ./Configure linux-aarch64 --prefix=$GITHUB_WORKSPACE/openssl-install --libdir=lib no-shared no-tests --cross-compile-prefix=aarch64-linux-gnu-
+            make -j$(nproc)
+            make install_sw
             cd ..
 
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/mbedtls-install/usr/local/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
-            export MBEDTLS_INSTALL=$GITHUB_WORKSPACE/mbedtls-install/usr/local
+            export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
 
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
@@ -206,7 +198,7 @@ jobs:
               --disable-everything \
               --enable-ffmpeg \
               --enable-version3 \
-              --enable-mbedtls \
+              --enable-openssl \
               --enable-protocol=file,http,https,tcp,tls \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
@@ -228,10 +220,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$MBEDTLS_INSTALL/include -DDEFAULT_CA_FILE=\"/etc/ssl/certs/ca-certificates.crt\"" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$MBEDTLS_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lmbedtls -lmbedx509 -lmbedcrypto -lpthread -lm -lstdc++"
+              --extra-libs="-lssl -lcrypto -ldl -lpthread -lm -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-arm64
