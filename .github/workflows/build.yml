@@ -130,7 +130,7 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$MBEDTLS_INSTALL/include" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$MBEDTLS_INSTALL/include -DDEFAULT_CA_FILE=\"/etc/ssl/certs/ca-certificates.crt\"" \
               --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$MBEDTLS_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
               --extra-libs="-lmbedtls -lmbedx509 -lmbedcrypto -lpthread -lm -lstdc++"
@@ -228,7 +228,7 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$MBEDTLS_INSTALL/include" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$MBEDTLS_INSTALL/include -DDEFAULT_CA_FILE=\"/etc/ssl/certs/ca-certificates.crt\"" \
               --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$MBEDTLS_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
               --extra-libs="-lmbedtls -lmbedx509 -lmbedcrypto -lpthread -lm -lstdc++"
@@ -393,7 +393,7 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file,http,https,tcp,tls \
+              --enable-protocol=file,http,https,tcp,tls --enable-securetransport \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
@@ -458,7 +458,7 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
-              --enable-protocol=file,http,https,tcp,tls \
+              --enable-protocol=file,http,https,tcp,tls --enable-securetransport \
               --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
