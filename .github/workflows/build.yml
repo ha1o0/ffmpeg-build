@@ -438,14 +438,13 @@ jobs:
             # Build zlib
             git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
             cd zlib-src
-            ./configure --prefix=$(pwd)/../zlib-install --static
+            CHOST=x86_64-apple-darwin CC="clang -arch x86_64" ./configure --prefix=$(pwd)/../zlib-install --static
             make -j$(sysctl -n hw.ncpu) install
             cd ..
 
             export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig:$(pwd)/webp-install/lib/pkgconfig:$(pwd)/zlib-install/lib/pkgconfig
 
             cd FFmpeg
-            make distclean || true
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -515,14 +514,13 @@ jobs:
             # Build zlib
             git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
             cd zlib-src
-            ./configure --prefix=$(pwd)/../zlib-install --static
+            CHOST=arm64-apple-darwin CC="clang -arch arm64" ./configure --prefix=$(pwd)/../zlib-install --static
             make -j$(sysctl -n hw.ncpu) install
             cd ..
 
             export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig:$(pwd)/webp-install/lib/pkgconfig:$(pwd)/zlib-install/lib/pkgconfig
 
             cd FFmpeg
-            make distclean || true
             ./configure \
               --arch=arm64 \
               --cpu=generic \
