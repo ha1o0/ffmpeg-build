@@ -7,6 +7,8 @@ env:
   FFMPEG_VERSION: n6.1
   ZIMG_VERSION: release-3.0.5
   DAV1D_VERSION: 1.4.1
+  WEBP_VERSION: 1.4.0
+  ZLIB_VERSION: 1.3.1
 
 ############################################################
 # Linux + Windows
@@ -84,15 +86,31 @@ jobs:
             make install_sw
             cd ..
 
+            # Build libwebp
+            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+            cd libwebp-src
+            ./autogen.sh
+            ./configure --prefix=$GITHUB_WORKSPACE/libwebp-install --host=x86_64-linux-gnu --disable-shared --enable-static --with-pic
+            make -j$(nproc) install
+            cd ..
+
+            # Build zlib
+            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
+            make -j$(nproc) install
+            cd ..
+
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig:$GITHUB_WORKSPACE/libwebp-install/lib/pkgconfig:$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
             export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
+            export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
+            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
             
-            pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
 
@@ -105,15 +123,17 @@ jobs:
               --enable-ffmpeg \
               --enable-version3 \
               --enable-openssl \
+              --enable-libwebp \
+              --enable-zlib \
               --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png \
+              --enable-encoder=mjpeg,png,libwebp \
               --enable-muxer=image2 \
               --enable-avcodec \
               --enable-avformat \
@@ -126,10 +146,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -L$WEBP_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lssl -lcrypto -lpthread -lm -ldl -lstdc++"
+              --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -lpthread -lm -ldl -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-x86_64
@@ -177,13 +197,30 @@ jobs:
             make install_sw
             cd ..
 
+            # Build libwebp (Cross-compile)
+            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+            cd libwebp-src
+            ./autogen.sh
+            ./configure --prefix=$GITHUB_WORKSPACE/libwebp-install --host=aarch64-linux-gnu --disable-shared --enable-static --with-pic
+            make -j$(nproc) install
+            cd ..
+
+            # Build zlib (Cross-compile)
+            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            CC=aarch64-linux-gnu-gcc ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
+            make -j$(nproc) install
+            cd ..
+
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig:$GITHUB_WORKSPACE/libwebp-install/lib/pkgconfig:$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
             export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
+            export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
+            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
 
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
@@ -200,15 +237,17 @@ jobs:
               --enable-ffmpeg \
               --enable-version3 \
               --enable-openssl \
+              --enable-libwebp \
+              --enable-zlib \
               --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png \
+              --enable-encoder=mjpeg,png,libwebp \
               --enable-muxer=image2 \
               --enable-avcodec \
               --enable-avformat \
@@ -221,10 +260,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -L$WEBP_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lssl -lcrypto -lpthread -lm -ldl -lstdc++"
+              --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -lpthread -lm -ldl -lstdc++"
 
             make -j$(nproc)
             cp ffmpeg ../ffmpeg-linux-arm64
@@ -265,12 +304,29 @@ jobs:
             ninja -C build install
             cd ..
 
+            # Build libwebp (Cross-compile)
+            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+            cd libwebp-src
+            ./autogen.sh
+            ./configure --prefix=$GITHUB_WORKSPACE/libwebp-install --host=x86_64-w64-mingw32 --disable-shared --enable-static --with-pic
+            make -j$(nproc) install
+            cd ..
+
+            # Build zlib (Cross-compile)
+            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            CHOST=x86_64-w64-mingw32 ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
+            make -j$(nproc) install
+            cd ..
+
             # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig
+            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/libwebp-install/lib/pkgconfig:$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig
             export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
             export PKG_CONFIG_ALLOW_CROSS=1
             export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
             export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
+            export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
+            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
 
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
@@ -284,15 +340,17 @@ jobs:
               --disable-everything \
               --enable-ffmpeg \
               --enable-schannel \
+              --enable-libwebp \
+              --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png \
+              --enable-encoder=mjpeg,png,libwebp \
               --enable-muxer=image2 \
               --enable-avcodec \
               --enable-avformat \
@@ -305,10 +363,10 @@ jobs:
               --disable-ffprobe \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -static" \
+              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
+              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$WEBP_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
               --extra-ldexeflags="-static" \
-              --extra-libs="-lstdc++ -lpthread"
+              --extra-libs="-lwebp -lsharpyuv -lz -lstdc++ -lpthread"
 
             make -j$(nproc)
             cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
@@ -373,10 +431,20 @@ jobs:
             ninja -C build install
             cd ..
 
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
+            # Build libwebp
+            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+            cd libwebp-src && ./autogen.sh && ./configure --prefix=$(pwd)/../webp-install --host=x86_64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
+
+            # Build zlib
+            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            CHOST=x86_64-apple-darwin CC="clang -arch x86_64" ./configure --prefix=$(pwd)/../zlib-install --static
+            make -j$(sysctl -n hw.ncpu) install
+            cd ..
+
+            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig:$(pwd)/webp-install/lib/pkgconfig:$(pwd)/zlib-install/lib/pkgconfig
 
             cd FFmpeg
-            make distclean || true
             ./configure \
               --arch=x86_64 \
               --cpu=generic \
@@ -386,15 +454,17 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
+              --enable-libwebp \
+              --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png \
+              --enable-encoder=mjpeg,png,libwebp \
               --enable-muxer=image2 \
               --enable-avcodec \
               --enable-avformat \
@@ -405,9 +475,9 @@ jobs:
               --enable-network \
               --disable-ffplay \
               --disable-ffprobe \
-              --extra-cflags="-I$(pwd)/../dav1d-install/include" \
-              --extra-ldflags="-L$(pwd)/../dav1d-install/lib" \
-              --extra-libs="-lpthread -lm -lstdc++"
+              --extra-cflags="-I$(pwd)/../dav1d-install/include -I$(pwd)/../webp-install/include -I$(pwd)/../zlib-install/include" \
+              --extra-ldflags="-L$(pwd)/../dav1d-install/lib -L$(pwd)/../webp-install/lib -L$(pwd)/../zlib-install/lib" \
+              --extra-libs="-lwebp -lsharpyuv -lz -lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
             cp ffmpeg ../ffmpeg-macos-x86_64
@@ -437,10 +507,20 @@ jobs:
             ninja -C build install
             cd ..
 
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig
+            # Build libwebp
+            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+            cd libwebp-src && ./autogen.sh && ./configure --prefix=$(pwd)/../webp-install --host=arm64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch arm64" LDFLAGS="-arch arm64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
+
+            # Build zlib
+            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+            cd zlib-src
+            CHOST=arm64-apple-darwin CC="clang -arch arm64" ./configure --prefix=$(pwd)/../zlib-install --static
+            make -j$(sysctl -n hw.ncpu) install
+            cd ..
+
+            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig:$(pwd)/webp-install/lib/pkgconfig:$(pwd)/zlib-install/lib/pkgconfig
 
             cd FFmpeg
-            make distclean || true
             ./configure \
               --arch=arm64 \
               --cpu=generic \
@@ -451,15 +531,17 @@ jobs:
               --disable-inline-asm \
               --disable-everything \
               --enable-ffmpeg \
+              --enable-libwebp \
+              --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3 \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
+              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png \
+              --enable-encoder=mjpeg,png,libwebp \
               --enable-muxer=image2 \
               --enable-avcodec \
               --enable-avformat \
@@ -470,9 +552,9 @@ jobs:
               --enable-network \
               --disable-ffplay \
               --disable-ffprobe \
-              --extra-cflags="-I$(pwd)/../dav1d-install/include" \
-              --extra-ldflags="-L$(pwd)/../dav1d-install/lib" \
-              --extra-libs="-lpthread -lm -lstdc++"
+              --extra-cflags="-I$(pwd)/../dav1d-install/include -I$(pwd)/../webp-install/include -I$(pwd)/../zlib-install/include" \
+              --extra-ldflags="-L$(pwd)/../dav1d-install/lib -L$(pwd)/../webp-install/lib -L$(pwd)/../zlib-install/lib" \
+              --extra-libs="-lwebp -lsharpyuv -lz -lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
             cp ffmpeg ../ffmpeg-macos-arm64
