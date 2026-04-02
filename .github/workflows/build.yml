@@ -4,27 +4,22 @@ on:
   workflow_dispatch:
 
 env:
-  FFMPEG_VERSION: n6.1
+  FFMPEG_VERSION: n7.0.1
   ZIMG_VERSION: release-3.0.5
   DAV1D_VERSION: 1.4.1
   WEBP_VERSION: 1.4.0
   ZLIB_VERSION: 1.3.1
-
-############################################################
-# Linux + Windows
-############################################################
+  BROTLI_VERSION: 1.1.0
+  HIGHWAY_VERSION: 1.1.0
+  JXL_VERSION: 0.10.2
 
 jobs:
 
   build-linux-windows:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        target:
-          - linux-x86_64
-          - linux-arm64
-          - windows-x86_64
+        target: [linux-x86_64, linux-arm64, windows-x86_64]
 
     steps:
       - uses: actions/checkout@v4
@@ -32,347 +27,214 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            build-essential \
-            nasm \
-            yasm \
-            pkg-config \
-            mingw-w64 \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu \
-            autoconf \
-            automake \
-            libtool \
-            ninja-build \
-            meson
+          sudo apt install -y build-essential nasm yasm pkg-config mingw-w64 gcc-aarch64-linux-gnu g++-aarch64-linux-gnu autoconf automake libtool ninja-build meson cmake
+
+      - name: Prepare Workspace Paths
+        run: |
+          echo "ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install" >> $GITHUB_ENV
+          echo "DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install" >> $GITHUB_ENV
+          echo "OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install" >> $GITHUB_ENV
+          echo "WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install" >> $GITHUB_ENV
+          echo "ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install" >> $GITHUB_ENV
+          echo "BROTLI_INSTALL=$GITHUB_WORKSPACE/brotli-install" >> $GITHUB_ENV
+          echo "HIGHWAY_INSTALL=$GITHUB_WORKSPACE/highway-install" >> $GITHUB_ENV
+          echo "JXL_INSTALL=$GITHUB_WORKSPACE/libjxl-install" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
 
       - name: Clone FFmpeg
         run: |
-          git clone https://github.com/FFmpeg/FFmpeg.git
-          cd FFmpeg
-          git checkout $FFMPEG_VERSION
+          git clone https://github.com/FFmpeg/FFmpeg.git --depth 1 -b $FFMPEG_VERSION FFmpeg-src
 
-      - name: Configure & Build
+      - name: Build zimg
+        run: |
+          git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+          cd zimg-src
+          sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
+          sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
+          ./autogen.sh
+          case "${{ matrix.target }}" in
+            linux-x86_64)   HOST=x86_64-linux-gnu ;;
+            linux-arm64)    HOST=aarch64-linux-gnu ;;
+            windows-x86_64) HOST=x86_64-w64-mingw32 ;;
+          esac
+          ./configure --prefix=${{ env.ZIMG_INSTALL }} --host=$HOST --disable-shared --enable-static --with-pic --disable-unit-test
+          make -j$(nproc) install
+
+      - name: Build dav1d
         run: |
           case "${{ matrix.target }}" in
-
-          ################################################
-          # Linux x86_64
-          ################################################
-          linux-x86_64)
-
-            # Build zimg
-            git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
-            cd zimg-src
-            sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
-            sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
-            ./autogen.sh
-            ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=x86_64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
-            make -j$(nproc) install
-            cd ..
-
-            # Build dav1d
-            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
-            cd dav1d-src
-            meson setup build --prefix=$GITHUB_WORKSPACE/dav1d-install --libdir=lib --default-library=static --buildtype=release
-            ninja -C build install
-            cd ..
-
-            # Build openssl
-            git clone -b openssl-3.3.0 https://github.com/openssl/openssl.git openssl-src
-            cd openssl-src
-            ./config --prefix=$GITHUB_WORKSPACE/openssl-install --libdir=lib no-shared no-tests
-            make -j$(nproc)
-            make install_sw
-            cd ..
-
-            # Build libwebp
-            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
-            cd libwebp-src
-            ./autogen.sh
-            ./configure --prefix=$GITHUB_WORKSPACE/libwebp-install --host=x86_64-linux-gnu --disable-shared --enable-static --with-pic
-            make -j$(nproc) install
-            cd ..
-
-            # Build zlib
-            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
-            cd zlib-src
-            ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
-            make -j$(nproc) install
-            cd ..
-
-            # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig:$GITHUB_WORKSPACE/libwebp-install/lib/pkgconfig:$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig
-            export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
-            export PKG_CONFIG_ALLOW_CROSS=1
-            export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
-            export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
-            export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
-            export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
-            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
-            
-            pkg-config --modversion zimg || echo "zimg not found"
-            pkg-config --modversion dav1d || echo "dav1d not found"
-
-            cd FFmpeg
-            ./configure \
-              --arch=x86_64 \
-              --cpu=generic \
-              --target-os=linux \
-              --disable-everything \
-              --enable-ffmpeg \
-              --enable-version3 \
-              --enable-openssl \
-              --enable-libwebp \
-              --enable-zlib \
-              --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
-              --enable-libzimg \
-              --enable-libdav1d \
-              --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png,libwebp \
-              --enable-muxer=image2 \
-              --enable-avcodec \
-              --enable-avformat \
-              --enable-avutil \
-              --enable-swscale \
-              --disable-doc \
-              --disable-debug \
-              --enable-network \
-              --disable-ffplay \
-              --disable-ffprobe \
-              --pkg-config=pkg-config \
-              --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -L$WEBP_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
-              --extra-ldexeflags="-static" \
-              --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -lpthread -lm -ldl -lstdc++"
-
-            make -j$(nproc)
-            cp ffmpeg ../ffmpeg-linux-x86_64
-            ;;
-
-          ################################################
-          # Linux arm64
-          ################################################
-          linux-arm64)
-
-            # Build zimg
-            git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
-            cd zimg-src
-            sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
-            sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
-            ./autogen.sh
-            ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=aarch64-linux-gnu --disable-shared --enable-static --with-pic --disable-unit-test
-            make -j$(nproc) install
-            cd ..
-
-            # Build dav1d (Cross-compile)
-            echo "[binaries]" > cross_linux_arm64.txt
-            echo "c = 'aarch64-linux-gnu-gcc'" >> cross_linux_arm64.txt
-            echo "cpp = 'aarch64-linux-gnu-g++'" >> cross_linux_arm64.txt
-            echo "ar = 'aarch64-linux-gnu-ar'" >> cross_linux_arm64.txt
-            echo "strip = 'aarch64-linux-gnu-strip'" >> cross_linux_arm64.txt
-            echo "pkgconfig = 'pkg-config'" >> cross_linux_arm64.txt
-            echo "[host_machine]" >> cross_linux_arm64.txt
-            echo "system = 'linux'" >> cross_linux_arm64.txt
-            echo "cpu_family = 'aarch64'" >> cross_linux_arm64.txt
-            echo "cpu = 'aarch64'" >> cross_linux_arm64.txt
-            echo "endian = 'little'" >> cross_linux_arm64.txt
-
-            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
-            cd dav1d-src
-            meson setup build --prefix=$GITHUB_WORKSPACE/dav1d-install --libdir=lib --cross-file ../cross_linux_arm64.txt --default-library=static --buildtype=release
-            ninja -C build install
-            cd ..
-
-            # Build openssl (Cross-compile)
-            git clone -b openssl-3.3.0 https://github.com/openssl/openssl.git openssl-src
-            cd openssl-src
-            CC=aarch64-linux-gnu-gcc ./Configure linux-aarch64 --prefix=$GITHUB_WORKSPACE/openssl-install --libdir=lib no-shared no-tests
-            make -j$(nproc)
-            make install_sw
-            cd ..
-
-            # Build libwebp (Cross-compile)
-            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
-            cd libwebp-src
-            ./autogen.sh
-            ./configure --prefix=$GITHUB_WORKSPACE/libwebp-install --host=aarch64-linux-gnu --disable-shared --enable-static --with-pic
-            make -j$(nproc) install
-            cd ..
-
-            # Build zlib (Cross-compile)
-            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
-            cd zlib-src
-            CC=aarch64-linux-gnu-gcc ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
-            make -j$(nproc) install
-            cd ..
-
-            # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/openssl-install/lib/pkgconfig:$GITHUB_WORKSPACE/libwebp-install/lib/pkgconfig:$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig
-            export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
-            export PKG_CONFIG_ALLOW_CROSS=1
-            export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
-            export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
-            export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
-            export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
-            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
-
-            pkg-config --modversion zimg || echo "zimg not found"
-            pkg-config --modversion dav1d || echo "dav1d not found"
-
-            cd FFmpeg
-            ./configure \
-              --arch=arm64 \
-              --cpu=generic \
-              --target-os=linux \
-              --cross-prefix=aarch64-linux-gnu- \
-              --disable-x86asm \
-              --disable-inline-asm \
-              --disable-everything \
-              --enable-ffmpeg \
-              --enable-version3 \
-              --enable-openssl \
-              --enable-libwebp \
-              --enable-zlib \
-              --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
-              --enable-libzimg \
-              --enable-libdav1d \
-              --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png,libwebp \
-              --enable-muxer=image2 \
-              --enable-avcodec \
-              --enable-avformat \
-              --enable-avutil \
-              --enable-swscale \
-              --disable-doc \
-              --disable-debug \
-              --enable-network \
-              --disable-ffplay \
-              --disable-ffprobe \
-              --pkg-config=pkg-config \
-              --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$OPENSSL_INSTALL/lib -L$WEBP_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
-              --extra-ldexeflags="-static" \
-              --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -lpthread -lm -ldl -lstdc++"
-
-            make -j$(nproc)
-            cp ffmpeg ../ffmpeg-linux-arm64
-            ;;
-
-          ################################################
-          # Windows x86_64
-          ################################################
-          windows-x86_64)
-
-            # Build zimg
-            git clone -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
-            cd zimg-src
-            sed -i 's/.*include.*tests\/Makefile.*/# &/' Makefile.am
-            sed -i 's/.*include.*doc\/example\/Makefile.*/# &/' Makefile.am
-            ./autogen.sh
-            ./configure --prefix=$GITHUB_WORKSPACE/zimg-install --host=x86_64-w64-mingw32 --disable-shared --enable-static --with-pic --disable-unit-test
-            make -j$(nproc) install
-            cd ..
-
-            # Build dav1d (Cross-compile)
-            echo "[binaries]" > cross_win_x64.txt
-            echo "c = 'x86_64-w64-mingw32-gcc'" >> cross_win_x64.txt
-            echo "cpp = 'x86_64-w64-mingw32-g++'" >> cross_win_x64.txt
-            echo "ar = 'x86_64-w64-mingw32-ar'" >> cross_win_x64.txt
-            echo "strip = 'x86_64-w64-mingw32-strip'" >> cross_win_x64.txt
-            echo "windres = 'x86_64-w64-mingw32-windres'" >> cross_win_x64.txt
-            echo "pkgconfig = 'pkg-config'" >> cross_win_x64.txt
-            echo "[host_machine]" >> cross_win_x64.txt
-            echo "system = 'windows'" >> cross_win_x64.txt
-            echo "cpu_family = 'x86_64'" >> cross_win_x64.txt
-            echo "cpu = 'x86_64'" >> cross_win_x64.txt
-            echo "endian = 'little'" >> cross_win_x64.txt
-
-            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
-            cd dav1d-src
-            meson setup build --prefix=$GITHUB_WORKSPACE/dav1d-install --libdir=lib --cross-file ../cross_win_x64.txt --default-library=static --buildtype=release
-            ninja -C build install
-            cd ..
-
-            # Build libwebp (Cross-compile)
-            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
-            cd libwebp-src
-            ./autogen.sh
-            ./configure --prefix=$GITHUB_WORKSPACE/libwebp-install --host=x86_64-w64-mingw32 --disable-shared --enable-static --with-pic
-            make -j$(nproc) install
-            cd ..
-
-            # Build zlib (Cross-compile)
-            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
-            cd zlib-src
-            CHOST=x86_64-w64-mingw32 ./configure --prefix=$GITHUB_WORKSPACE/zlib-install --static
-            make -j$(nproc) install
-            cd ..
-
-            # Setup PKG_CONFIG
-            export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/zimg-install/lib/pkgconfig:$GITHUB_WORKSPACE/dav1d-install/lib/pkgconfig:$GITHUB_WORKSPACE/libwebp-install/lib/pkgconfig:$GITHUB_WORKSPACE/zlib-install/lib/pkgconfig
-            export PKG_CONFIG_LIBDIR=$PKG_CONFIG_PATH
-            export PKG_CONFIG_ALLOW_CROSS=1
-            export ZIMG_INSTALL=$GITHUB_WORKSPACE/zimg-install
-            export DAV1D_INSTALL=$GITHUB_WORKSPACE/dav1d-install
-            export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
-            export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
-
-            pkg-config --modversion zimg || echo "zimg not found"
-            pkg-config --modversion dav1d || echo "dav1d not found"
-
-            cd FFmpeg
-            ./configure \
-              --arch=x86_64 \
-              --cpu=generic \
-              --target-os=mingw32 \
-              --cross-prefix=x86_64-w64-mingw32- \
-              --disable-everything \
-              --enable-ffmpeg \
-              --enable-schannel \
-              --enable-libwebp \
-              --enable-zlib \
-              --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
-              --enable-libzimg \
-              --enable-libdav1d \
-              --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png,libwebp \
-              --enable-muxer=image2 \
-              --enable-avcodec \
-              --enable-avformat \
-              --enable-avutil \
-              --enable-swscale \
-              --disable-doc \
-              --disable-debug \
-              --enable-network \
-              --disable-ffplay \
-              --disable-ffprobe \
-              --pkg-config=pkg-config \
-              --pkg-config-flags="--static" \
-              --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
-              --extra-ldflags="-L$ZIMG_INSTALL/lib -L$DAV1D_INSTALL/lib -L$WEBP_INSTALL/lib -L$ZLIB_INSTALL/lib -static" \
-              --extra-ldexeflags="-static" \
-              --extra-libs="-lwebp -lsharpyuv -lz -lstdc++ -lpthread"
-
-            make -j$(nproc)
-            cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
-            ;;
-
+            linux-x86_64)
+              git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+              cd dav1d-src
+              meson setup build --prefix=${{ env.DAV1D_INSTALL }} --libdir=lib --default-library=static --buildtype=release
+              ninja -C build install
+              ;;
+            linux-arm64)
+              echo "[binaries]\nc = 'aarch64-linux-gnu-gcc'\ncpp = 'aarch64-linux-gnu-g++'\nar = 'aarch64-linux-gnu-ar'\nstrip = 'aarch64-linux-gnu-strip'\npkgconfig = 'pkg-config'\n[host_machine]\nsystem = 'linux'\ncpu_family = 'aarch64'\ncpu = 'aarch64'\nendian = 'little'" > cross.txt
+              git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
+              cd dav1d-src
+              meson setup build --prefix=${{ env.DAV1D_INSTALL }} --libdir=lib --cross-file ../cross.txt --default-library=static --buildtype=release
+              ninja -C build install
+              ;;
+            windows-x86_64)
+              echo "[binaries]\nc = 'x86_64-w64-mingw32-gcc'\ncpp = 'x86_64-w64-mingw32-g++'\nar = 'x86_64-w64-mingw32-ar'\nstrip = 'x86_64-w64-mingw32-strip'\nwindres = 'x86_64-w64-mingw32-windres'\nnasm = 'nasm'\npkgconfig = 'pkg-config'\n[host_machine]\nsystem = 'windows'\ncpu_family = 'x86_64'\ncpu = 'x86_64'\nendian = 'little'" > cross.txt
+              git clone --branch $DAV1D_VERSION --depth 1 https://code.videolan.org/videolan/dav1d.git dav1d-src
+              cd dav1d-src
+              meson setup build --prefix=${{ env.DAV1D_INSTALL }} --libdir=lib --cross-file ../cross.txt --default-library=static --buildtype=release -Denable_asm=true
+              ninja -C build install
+              ;;
           esac
+
+      - name: Build openssl (Linux only)
+        if: startsWith(matrix.target, 'linux')
+        run: |
+          git clone -b openssl-3.3.0 https://github.com/openssl/openssl.git openssl-src
+          cd openssl-src
+          case "${{ matrix.target }}" in
+            linux-x86_64) ./config --prefix=${{ env.OPENSSL_INSTALL }} --libdir=lib no-shared no-tests ;;
+            linux-arm64)  CC=aarch64-linux-gnu-gcc ./Configure linux-aarch64 --prefix=${{ env.OPENSSL_INSTALL }} --libdir=lib no-shared no-tests ;;
+          esac
+          make -j$(nproc)
+          make install_sw
+
+      - name: Build libwebp
+        run: |
+          git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+          cd libwebp-src
+          ./autogen.sh
+          case "${{ matrix.target }}" in
+            linux-x86_64)   HOST=x86_64-linux-gnu ;;
+            linux-arm64)    HOST=aarch64-linux-gnu ;;
+            windows-x86_64) HOST=x86_64-w64-mingw32 ;;
+          esac
+          ./configure --prefix=${{ env.WEBP_INSTALL }} --host=$HOST --disable-shared --enable-static --with-pic
+          make -j$(nproc) install
+
+      - name: Build zlib
+        run: |
+          git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+          cd zlib-src
+          case "${{ matrix.target }}" in
+            linux-x86_64)   ./configure --prefix=${{ env.ZLIB_INSTALL }} --static ;;
+            linux-arm64)    CC=aarch64-linux-gnu-gcc ./configure --prefix=${{ env.ZLIB_INSTALL }} --static ;;
+            windows-x86_64) CHOST=x86_64-w64-mingw32 ./configure --prefix=${{ env.ZLIB_INSTALL }} --static ;;
+          esac
+          make -j$(nproc) install
+
+      - name: Build Brotli (For JXL)
+        run: |
+          git clone -b v$BROTLI_VERSION https://github.com/google/brotli.git brotli-src
+          cd brotli-src
+          mkdir -p cmake_build && cd cmake_build
+          case "${{ matrix.target }}" in
+            linux-x86_64)   cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.BROTLI_INSTALL }} -DBUILD_SHARED_LIBS=OFF ;;
+            linux-arm64)    cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.BROTLI_INSTALL }} -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DBUILD_SHARED_LIBS=OFF ;;
+            windows-x86_64) cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.BROTLI_INSTALL }} -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DBUILD_SHARED_LIBS=OFF ;;
+          esac
+          make -j$(nproc) install
+
+      - name: Build Highway (For JXL)
+        run: |
+          git clone -b $HIGHWAY_VERSION https://github.com/google/highway.git highway-src
+          cd highway-src
+          mkdir -p cmake_build && cd cmake_build
+          case "${{ matrix.target }}" in
+            linux-x86_64)   cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.HIGHWAY_INSTALL }} -DBUILD_SHARED_LIBS=OFF -DHWY_ENABLE_EXAMPLES=OFF -DHWY_ENABLE_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON ;;
+            linux-arm64)    cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.HIGHWAY_INSTALL }} -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DBUILD_SHARED_LIBS=OFF -DHWY_ENABLE_EXAMPLES=OFF -DHWY_ENABLE_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON ;;
+            windows-x86_64) cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.HIGHWAY_INSTALL }} -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DBUILD_SHARED_LIBS=OFF -DHWY_ENABLE_EXAMPLES=OFF -DHWY_ENABLE_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON ;;
+          esac
+          make -j$(nproc) install
+
+      - name: Build libjxl
+        run: |
+          git clone -b v$JXL_VERSION https://github.com/libjxl/libjxl.git libjxl-src
+          cd libjxl-src
+          git submodule update --init --recursive
+          mkdir -p cmake_build && cd cmake_build
+          case "${{ matrix.target }}" in
+            linux-x86_64)   cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.JXL_INSTALL }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_BENCHMARKS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF -DJPEGXL_ENABLE_MANPAGES=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF -DBrotli_INCLUDE_DIR=${{ env.BROTLI_INSTALL }}/include -DBrotli_LIBRARY=${{ env.BROTLI_INSTALL }}/lib/libbrotlicommon.a -DHWY_INCLUDE_DIR=${{ env.HIGHWAY_INSTALL }}/include -DHWY_LIBRARY=${{ env.HIGHWAY_INSTALL }}/lib/libhwy.a -DCMAKE_POSITION_INDEPENDENT_CODE=ON ;;
+            linux-arm64)    cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.JXL_INSTALL }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_BENCHMARKS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF -DJPEGXL_ENABLE_MANPAGES=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF -DBrotli_INCLUDE_DIR=${{ env.BROTLI_INSTALL }}/include -DBrotli_LIBRARY=${{ env.BROTLI_INSTALL }}/lib/libbrotlicommon.a -DHWY_INCLUDE_DIR=${{ env.HIGHWAY_INSTALL }}/include -DHWY_LIBRARY=${{ env.HIGHWAY_INSTALL }}/lib/libhwy.a -DCMAKE_POSITION_INDEPENDENT_CODE=ON ;;
+            windows-x86_64) cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.JXL_INSTALL }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_BENCHMARKS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF -DJPEGXL_ENABLE_MANPAGES=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF -DBrotli_INCLUDE_DIR=${{ env.BROTLI_INSTALL }}/include -DBrotli_LIBRARY=${{ env.BROTLI_INSTALL }}/lib/libbrotlicommon.a -DHWY_INCLUDE_DIR=${{ env.HIGHWAY_INSTALL }}/include -DHWY_LIBRARY=${{ env.HIGHWAY_INSTALL }}/lib/libhwy.a -DCMAKE_POSITION_INDEPENDENT_CODE=ON ;;
+          esac
+          make -j$(nproc) install
+
+      - name: Configure FFmpeg
+        run: |
+          cd FFmpeg-src
+          case "${{ matrix.target }}" in
+            linux-x86_64)
+              export PKG_CONFIG_PATH=${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig
+              ./configure --arch=x86_64 --cpu=generic --target-os=linux \
+                --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.OPENSSL_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
+                --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.OPENSSL_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
+                --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread -lm -ldl -lstdc++" \
+                --enable-openssl \
+                --disable-x86asm --disable-inline-asm \
+                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
+                --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
+                --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1 \
+                --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
+                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
+              ;;
+            linux-arm64)
+              export PKG_CONFIG_LIBDIR=${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig
+              export libdav1d_CFLAGS="-I${{ env.DAV1D_INSTALL }}/include"
+              export libdav1d_LIBS="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d"
+              export libwebp_CFLAGS="-I${{ env.WEBP_INSTALL }}/include"
+              export libwebp_LIBS="-L${{ env.WEBP_INSTALL }}/lib -lwebp -lsharpyuv"
+              export libjxl_CFLAGS="-I${{ env.JXL_INSTALL }}/include"
+              export libjxl_LIBS="-L${{ env.JXL_INSTALL }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
+              export libzimg_CFLAGS="-I${{ env.ZIMG_INSTALL }}/include"
+              export libzimg_LIBS="-L${{ env.ZIMG_INSTALL }}/lib -lzimg"
+              ./configure --arch=arm64 --cpu=generic --target-os=linux --cross-prefix=aarch64-linux-gnu- \
+                --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.OPENSSL_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
+                --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.OPENSSL_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
+                --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread -lm -ldl -lstdc++" \
+                --enable-openssl \
+                --disable-x86asm --disable-inline-asm \
+                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
+                --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
+                --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1 \
+                --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
+                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
+              ;;
+            windows-x86_64)
+              # Debug info: verify pkg-config can see dav1d
+              export PKG_CONFIG_PATH=${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig
+              export PKG_CONFIG_LIBDIR=/usr/x86_64-w64-mingw32/lib/pkgconfig
+              pkg-config --modversion dav1d || echo "dav1d not found via pkg-config"
+              export libdav1d_CFLAGS="-I${{ env.DAV1D_INSTALL }}/include"
+              export libdav1d_LIBS="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread"
+              export libwebp_CFLAGS="-I${{ env.WEBP_INSTALL }}/include"
+              export libwebp_LIBS="-L${{ env.WEBP_INSTALL }}/lib -lwebp -lsharpyuv"
+              export libjxl_CFLAGS="-I${{ env.JXL_INSTALL }}/include"
+              export libjxl_LIBS="-L${{ env.JXL_INSTALL }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
+              export libzimg_CFLAGS="-I${{ env.ZIMG_INSTALL }}/include"
+              export libzimg_LIBS="-L${{ env.ZIMG_INSTALL }}/lib -lzimg"
+              ./configure --arch=x86_64 --cpu=generic --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32- --enable-schannel \
+                --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
+                --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
+                --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lstdc++ -lpthread" \
+                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
+                --enable-protocol=file,http,https,tcp,tls \
+                --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1 \
+                --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
+                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
+              ;;
+          esac
+
+      - name: Build and Package
+        run: |
+          cd FFmpeg-src
+          make -j$(nproc)
+          if [ "${{ matrix.target }}" = "windows-x86_64" ]; then
+            cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
+          else
+            cp ffmpeg ../ffmpeg-${{ matrix.target }}
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -380,14 +242,8 @@ jobs:
           name: ffmpeg-${{ matrix.target }}
           path: ffmpeg-*
 
-
-############################################################
-# macOS (x86_64 + arm64)
-############################################################
-
   build-macos:
     runs-on: macos-latest
-
     strategy:
       matrix:
         arch: [x86_64, arm64]
@@ -396,170 +252,78 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install nasm pkg-config automake libtool ninja meson
+        run: brew install nasm pkg-config automake libtool ninja meson cmake
+
+      - name: Prepare Workspace Paths
+        run: |
+          echo "INSTALL_DIR=$GITHUB_WORKSPACE/install" >> $GITHUB_ENV
+          mkdir -p $GITHUB_WORKSPACE/install
 
       - name: Clone FFmpeg
         run: |
-          git clone https://github.com/FFmpeg/FFmpeg.git
-          cd FFmpeg
-          git checkout $FFMPEG_VERSION
+          git clone https://github.com/FFmpeg/FFmpeg.git --depth 1 -b $FFMPEG_VERSION FFmpeg-src
 
-      - name: Configure & Build
+      - name: Build zimg
         run: |
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+          git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
+          cd zimg-src && ./autogen.sh && CC="clang -arch ${{ matrix.arch }}" CXX="clang++ -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --host=${{ matrix.arch }}-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch ${{ matrix.arch }}" CXXFLAGS="-arch ${{ matrix.arch }}" LDFLAGS="-arch ${{ matrix.arch }}" && make -j$(sysctl -n hw.ncpu) install
 
-            # Build zimg
-            git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
-            cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=x86_64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-            
-            # Build dav1d
-            echo "[binaries]" > cross_mac_x86_64.txt
-            echo "c = ['clang', '-arch', 'x86_64']" >> cross_mac_x86_64.txt
-            echo "cpp = ['clang++', '-arch', 'x86_64']" >> cross_mac_x86_64.txt
-            echo "ar = 'ar'" >> cross_mac_x86_64.txt
-            echo "strip = 'strip'" >> cross_mac_x86_64.txt
-            echo "pkgconfig = 'pkg-config'" >> cross_mac_x86_64.txt
-            echo "[host_machine]" >> cross_mac_x86_64.txt
-            echo "system = 'darwin'" >> cross_mac_x86_64.txt
-            echo "cpu_family = 'x86_64'" >> cross_mac_x86_64.txt
-            echo "cpu = 'x86_64'" >> cross_mac_x86_64.txt
-            echo "endian = 'little'" >> cross_mac_x86_64.txt
+      - name: Build dav1d
+        run: |
+          echo "[binaries]\nc = ['clang', '-arch', '${{ matrix.arch }}']\ncpp = ['clang++', '-arch', '${{ matrix.arch }}']\nar = 'ar'\nstrip = 'strip'\nnasm = 'nasm'\npkgconfig = 'pkg-config'\n[host_machine]\nsystem = 'darwin'\ncpu_family = '${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}'\ncpu = '${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}'\nendian = 'little'" > cross.txt
+          git clone --branch $DAV1D_VERSION --depth 1 https://code.videolan.org/videolan/dav1d.git dav1d-src
+          cd dav1d-src && meson setup build --prefix=${{ env.INSTALL_DIR }} --libdir=lib --cross-file ../cross.txt --default-library=static --buildtype=release -Denable_asm=true && ninja -C build install
 
-            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
-            cd dav1d-src
-            meson setup build --prefix=$(pwd)/../dav1d-install --libdir=lib --cross-file ../cross_mac_x86_64.txt --default-library=static --buildtype=release
-            ninja -C build install
-            cd ..
+      - name: Build libwebp
+        run: |
+          git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
+          cd libwebp-src && ./autogen.sh && CC="clang -arch ${{ matrix.arch }}" CXX="clang++ -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --host=${{ matrix.arch }}-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch ${{ matrix.arch }}" LDFLAGS="-arch ${{ matrix.arch }}" && make -j$(sysctl -n hw.ncpu) install
 
-            # Build libwebp
-            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
-            cd libwebp-src && ./autogen.sh && ./configure --prefix=$(pwd)/../webp-install --host=x86_64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
+      - name: Build zlib
+        run: |
+          git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
+          cd zlib-src && CC="clang -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --static && make -j$(sysctl -n hw.ncpu) install
 
-            # Build zlib
-            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
-            cd zlib-src
-            CHOST=x86_64-apple-darwin CC="clang -arch x86_64" ./configure --prefix=$(pwd)/../zlib-install --static
-            make -j$(sysctl -n hw.ncpu) install
-            cd ..
+      - name: Build Brotli
+        run: |
+          git clone -b v$BROTLI_VERSION https://github.com/google/brotli.git brotli-src
+          cd brotli-src && mkdir -p cmake_build && cd cmake_build && cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_DIR }} -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS="-arch ${{ matrix.arch }}" -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-arch ${{ matrix.arch }}" -DBUILD_SHARED_LIBS=OFF && make -j$(sysctl -n hw.ncpu) install
 
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig:$(pwd)/webp-install/lib/pkgconfig:$(pwd)/zlib-install/lib/pkgconfig
+      - name: Build Highway
+        run: |
+          git clone -b $HIGHWAY_VERSION https://github.com/google/highway.git highway-src
+          cd highway-src && mkdir -p cmake_build && cd cmake_build && cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_DIR }} -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS="-arch ${{ matrix.arch }}" -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-arch ${{ matrix.arch }}" -DBUILD_SHARED_LIBS=OFF -DHWY_ENABLE_EXAMPLES=OFF -DHWY_ENABLE_TESTS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON && make -j$(sysctl -n hw.ncpu) install
 
-            cd FFmpeg
-            ./configure \
-              --arch=x86_64 \
-              --cpu=generic \
-              --cc="clang -arch x86_64" \
-              --cxx="clang++ -arch x86_64" \
-              --target-os=darwin \
-              --disable-inline-asm \
-              --disable-everything \
-              --enable-ffmpeg \
-              --enable-libwebp \
-              --enable-zlib \
-              --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
-              --enable-libzimg \
-              --enable-libdav1d \
-              --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png,libwebp \
-              --enable-muxer=image2 \
-              --enable-avcodec \
-              --enable-avformat \
-              --enable-avutil \
-              --enable-swscale \
-              --disable-doc \
-              --disable-debug \
-              --enable-network \
-              --disable-ffplay \
-              --disable-ffprobe \
-              --extra-cflags="-I$(pwd)/../dav1d-install/include -I$(pwd)/../webp-install/include -I$(pwd)/../zlib-install/include" \
-              --extra-ldflags="-L$(pwd)/../dav1d-install/lib -L$(pwd)/../webp-install/lib -L$(pwd)/../zlib-install/lib" \
-              --extra-libs="-lwebp -lsharpyuv -lz -lpthread -lm -lstdc++"
+      - name: Build libjxl
+        run: |
+          git clone -b v$JXL_VERSION https://github.com/libjxl/libjxl.git libjxl-src
+          cd libjxl-src && git submodule update --init --recursive
+          mkdir -p cmake_build && cd cmake_build && cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_DIR }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS="-arch ${{ matrix.arch }}" -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-arch ${{ matrix.arch }}" -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_BENCHMARKS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF -DJPEGXL_ENABLE_MANPAGES=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF -DBrotli_INCLUDE_DIR=${{ env.INSTALL_DIR }}/include -DBrotli_LIBRARY=${{ env.INSTALL_DIR }}/lib/libbrotlicommon.a -DHWY_INCLUDE_DIR=${{ env.INSTALL_DIR }}/include -DHWY_LIBRARY=${{ env.INSTALL_DIR }}/lib/libhwy.a && make -j$(sysctl -n hw.ncpu) install
 
-            make -j$(sysctl -n hw.ncpu)
-            cp ffmpeg ../ffmpeg-macos-x86_64
-
-          else
-
-            # Build zimg
-            git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
-            cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=arm64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-            
-            # Build dav1d
-            echo "[binaries]" > cross_mac_arm64.txt
-            echo "c = ['clang', '-arch', 'arm64']" >> cross_mac_arm64.txt
-            echo "cpp = ['clang++', '-arch', 'arm64']" >> cross_mac_arm64.txt
-            echo "ar = 'ar'" >> cross_mac_arm64.txt
-            echo "strip = 'strip'" >> cross_mac_arm64.txt
-            echo "pkgconfig = 'pkg-config'" >> cross_mac_arm64.txt
-            echo "[host_machine]" >> cross_mac_arm64.txt
-            echo "system = 'darwin'" >> cross_mac_arm64.txt
-            echo "cpu_family = 'aarch64'" >> cross_mac_arm64.txt
-            echo "cpu = 'aarch64'" >> cross_mac_arm64.txt
-            echo "endian = 'little'" >> cross_mac_arm64.txt
-
-            git clone -b $DAV1D_VERSION https://code.videolan.org/videolan/dav1d.git dav1d-src
-            cd dav1d-src
-            meson setup build --prefix=$(pwd)/../dav1d-install --libdir=lib --cross-file ../cross_mac_arm64.txt --default-library=static --buildtype=release
-            ninja -C build install
-            cd ..
-
-            # Build libwebp
-            git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
-            cd libwebp-src && ./autogen.sh && ./configure --prefix=$(pwd)/../webp-install --host=arm64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch arm64" LDFLAGS="-arch arm64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-
-            # Build zlib
-            git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
-            cd zlib-src
-            CHOST=arm64-apple-darwin CC="clang -arch arm64" ./configure --prefix=$(pwd)/../zlib-install --static
-            make -j$(sysctl -n hw.ncpu) install
-            cd ..
-
-            export PKG_CONFIG_PATH=$(pwd)/zimg-src/_install/lib/pkgconfig:$(pwd)/dav1d-install/lib/pkgconfig:$(pwd)/webp-install/lib/pkgconfig:$(pwd)/zlib-install/lib/pkgconfig
-
-            cd FFmpeg
-            ./configure \
-              --arch=arm64 \
-              --cpu=generic \
-              --cc="clang -arch arm64" \
-              --cxx="clang++ -arch arm64" \
-              --target-os=darwin \
-              --disable-x86asm \
-              --disable-inline-asm \
-              --disable-everything \
-              --enable-ffmpeg \
-              --enable-libwebp \
-              --enable-zlib \
-              --enable-protocol=file,http,https,tcp,tls \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif \
-              --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
-              --enable-libzimg \
-              --enable-libdav1d \
-              --enable-filter=scale,format,zscale,tonemap \
-              --enable-encoder=mjpeg,png,libwebp \
-              --enable-muxer=image2 \
-              --enable-avcodec \
-              --enable-avformat \
-              --enable-avutil \
-              --enable-swscale \
-              --disable-doc \
-              --disable-debug \
-              --enable-network \
-              --disable-ffplay \
-              --disable-ffprobe \
-              --extra-cflags="-I$(pwd)/../dav1d-install/include -I$(pwd)/../webp-install/include -I$(pwd)/../zlib-install/include" \
-              --extra-ldflags="-L$(pwd)/../dav1d-install/lib -L$(pwd)/../webp-install/lib -L$(pwd)/../zlib-install/lib" \
-              --extra-libs="-lwebp -lsharpyuv -lz -lpthread -lm -lstdc++"
-
-            make -j$(sysctl -n hw.ncpu)
-            cp ffmpeg ../ffmpeg-macos-arm64
-
-          fi
+      - name: Configure and Build FFmpeg
+        run: |
+          cd FFmpeg-src
+          export PKG_CONFIG_PATH=${{ env.INSTALL_DIR }}/lib/pkgconfig
+          export libdav1d_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
+          export libdav1d_LIBS="-L${{ env.INSTALL_DIR }}/lib -ldav1d -lpthread"
+          export libwebp_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
+          export libwebp_LIBS="-L${{ env.INSTALL_DIR }}/lib -lwebp -lsharpyuv"
+          export libjxl_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
+          export libjxl_LIBS="-L${{ env.INSTALL_DIR }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
+          export libzimg_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
+          export libzimg_LIBS="-L${{ env.INSTALL_DIR }}/lib -lzimg"
+          ./configure \
+            --arch=${{ matrix.arch }} --cc="clang -arch ${{ matrix.arch }}" --cxx="clang++ -arch ${{ matrix.arch }}" --target-os=darwin \
+            --extra-cflags="-I${{ env.INSTALL_DIR }}/include" --extra-ldflags="-L${{ env.INSTALL_DIR }}/lib" \
+            --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread -lm -lstdc++" \
+            --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
+            --enable-protocol=file,http,https,tcp,tls \
+            --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl \
+            --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1 \
+            --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
+            --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
+          make -j$(sysctl -n hw.ncpu)
+          cp ffmpeg ../ffmpeg-macos-${{ matrix.arch }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
