@@ -161,115 +161,50 @@ jobs:
       - name: Configure FFmpeg
         run: |
           cd FFmpeg-src
+          
+          # 1. Identity Hijack: Rename internal decoder names (Precise Struct Member Match)
+          sed -i 's|\.p\.name\s*=\s*"libdav1d"|.p.name = "av1"|g' libavcodec/libdav1d.c
+          sed -i 's|\.p\.wrapper_name\s*=\s*"libdav1d"|.p.wrapper_name = "av1"|g' libavcodec/libdav1d.c
+          sed -i 's|\.p\.name\s*=\s*"libwebp"|.p.name = "webp"|g' libavcodec/libwebp*.c
+          sed -i 's|\.p\.wrapper_name\s*=\s*"libwebp"|.p.wrapper_name = "webp"|g' libavcodec/libwebp*.c
+
+          # 2. Nuclear Bypass: Manually enable libs and set flags (bypass pkg-config)
+          sed -i "s|require_pkg_config libdav1d.*|enable libdav1d; libdav1d_cflags='-I${{ env.DAV1D_INSTALL }}/include'; libdav1d_extralibs='-L${{ env.DAV1D_INSTALL }}/lib -ldav1d'|g" configure
+          sed -i "s|require_pkg_config libwebp.*|enable libwebp; libwebp_cflags='-I${{ env.WEBP_INSTALL }}/include'; libwebp_extralibs='-L${{ env.WEBP_INSTALL }}/lib -lwebp -lsharpyuv'|g" configure
+          sed -i "s|require_pkg_config libjxl.*|enable libjxl; libjxl_cflags='-I${{ env.JXL_INSTALL }}/include'; libjxl_extralibs='-L${{ env.JXL_INSTALL }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon'|g" configure
+          sed -i "s|require_pkg_config libzimg.*|enable libzimg; libzimg_cflags='-I${{ env.ZIMG_INSTALL }}/include'; libzimg_extralibs='-L${{ env.ZIMG_INSTALL }}/lib -lzimg'|g" configure
+
           case "${{ matrix.target }}" in
             linux-x86_64)
-              export PKG_CONFIG_PATH="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
-              
-              echo "Diagnosing libdav1d..."
-              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
-              pkg-config --modversion dav1d
-              pkg-config --libs --static dav1d
-              
-              echo "Before patch:"
-              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
-              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
-              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_open "-ldav1d -lpthread -ldl"/g' configure
-              echo "After patch:"
-              grep "libdav1d" configure | head -n 5
-              
-              # Source Patches for Decoder Priority
-              sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
-              sed -i 's/"libwebp"/"webp"/g' libavcodec/libwebp*.c || true
-              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-
-              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
-              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
               ./configure --arch=x86_64 --cpu=generic --target-os=linux \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.OPENSSL_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HIGHWAY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.OPENSSL_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HIGHWAY_INSTALL }}/lib -static" \
-                --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread -lm -ldl -lstdc++" \
-                --enable-openssl \
-                --disable-x86asm --disable-inline-asm \
-                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
+                --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -ldav1d -lpthread -lm -ldl -lstdc++" \
+                --enable-openssl --disable-x86asm --disable-inline-asm --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
                 --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,av1,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
-                --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+                --disable-decoder=av1,webp --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+                --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
               ;;
             linux-arm64)
-              export PKG_CONFIG_LIBDIR="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
-              
-              echo "Diagnosing libdav1d..."
-              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
-              pkg-config --modversion dav1d
-
-              echo "Before patch:"
-              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
-              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
-              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_open "-ldav1d -lpthread -ldl"/g' configure
-              echo "After patch:"
-              grep "libdav1d" configure | head -n 5
-              
-              # Source Patches for Decoder Priority
-              sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
-              sed -i 's/"libwebp"/"webp"/g' libavcodec/libwebp*.c || true
-              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-              
-              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
-              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
               ./configure --arch=arm64 --cpu=generic --target-os=linux --cross-prefix=aarch64-linux-gnu- \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.OPENSSL_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HIGHWAY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.OPENSSL_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HIGHWAY_INSTALL }}/lib -static" \
-                --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread -lm -ldl -lstdc++" \
-                --enable-openssl \
-                --disable-x86asm --disable-inline-asm \
-                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
+                --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -ldav1d -lpthread -lm -ldl -lstdc++" \
+                --enable-openssl --disable-x86asm --disable-inline-asm --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
                 --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,av1,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
-                --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+                --disable-decoder=av1,webp --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+                --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
               ;;
             windows-x86_64)
-              # Set PKG_CONFIG_PATH to our custom installs
-              export PKG_CONFIG_PATH="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
-              export PKG_CONFIG_LIBDIR="/usr/x86_64-w64-mingw32/lib/pkgconfig"
-              export PKG_CONFIG_ALLOW_CROSS=1
-              
-              echo "Diagnosing libdav1d..."
-              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
-              pkg-config --modversion dav1d
-              pkg-config --libs --static dav1d
-              
-              echo "Before patch:"
-              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
-              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
-              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_open "-ldav1d -lpthread -ldl"/g' configure
-              echo "After patch:"
-              grep "libdav1d" configure | head -n 5
-              
-              # Source Patches for Decoder Priority
-              sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
-              sed -i 's/"libwebp"/"webp"/g' libavcodec/libwebp*.c || true
-              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-              
-              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
-              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
-              
               ./configure --arch=x86_64 --cpu=generic --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32- --enable-schannel \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HIGHWAY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HIGHWAY_INSTALL }}/lib -static" \
-                --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lstdc++ -lpthread" \
-                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
-                --enable-protocol=file,http,https,tcp,tls \
-                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,av1,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
-                --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
+                --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -ldav1d -lstdc++ -lpthread" \
+                --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib --enable-protocol=file,http,https,tcp,tls --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi --enable-decoder=h264,hevc,vp9,libdav1d,libwebp,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi --disable-decoder=av1,webp --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
               ;;
           esac
 
@@ -303,6 +238,7 @@ jobs:
 
       - name: Prepare Workspace Paths
         run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
           echo "INSTALL_DIR=$GITHUB_WORKSPACE/install" >> $GITHUB_ENV
           mkdir -p $GITHUB_WORKSPACE/install
 
@@ -313,23 +249,23 @@ jobs:
       - name: Build zimg
         run: |
           git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
-          cd zimg-src && ./autogen.sh && CC="clang -arch ${{ matrix.arch }}" CXX="clang++ -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --host=${{ matrix.arch }}-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch ${{ matrix.arch }}" CXXFLAGS="-arch ${{ matrix.arch }}" LDFLAGS="-arch ${{ matrix.arch }}" && make -j$(sysctl -n hw.ncpu) install
+          cd zimg-src && ./autogen.sh && CC="clang -arch ${{ matrix.arch }}" CXX="clang++ -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --host=${{ matrix.arch }}-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0 -isysroot $(xcrun --sdk macosx --show-sdk-path)" CXXFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0 -isysroot $(xcrun --sdk macosx --show-sdk-path)" LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0" && make -j$(sysctl -n hw.ncpu) install
 
       - name: Build dav1d
         run: |
-          echo "[binaries]\nc = ['clang', '-arch', '${{ matrix.arch }}']\ncpp = ['clang++', '-arch', '${{ matrix.arch }}']\nar = 'ar'\nstrip = 'strip'\nnasm = 'nasm'\npkgconfig = 'pkg-config'\n[host_machine]\nsystem = 'darwin'\ncpu_family = '${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}'\ncpu = '${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}'\nendian = 'little'" > cross.txt
+          echo "[binaries]\nc = ['clang', '-arch', '${{ matrix.arch }}', '-mmacosx-version-min=11.0', '-isysroot', '$(xcrun --sdk macosx --show-sdk-path)']\ncpp = ['clang++', '-arch', '${{ matrix.arch }}', '-mmacosx-version-min=11.0', '-isysroot', '$(xcrun --sdk macosx --show-sdk-path)']\nar = 'ar'\nstrip = 'strip'\nnasm = 'nasm'\npkgconfig = 'pkg-config'\n[host_machine]\nsystem = 'darwin'\ncpu_family = '${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}'\ncpu = '${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}'\nendian = 'little'" > cross.txt
           git clone --branch $DAV1D_VERSION --depth 1 https://code.videolan.org/videolan/dav1d.git dav1d-src
           cd dav1d-src && meson setup build --prefix=${{ env.INSTALL_DIR }} --libdir=lib --cross-file ../cross.txt --default-library=static --buildtype=release -Denable_asm=true && ninja -C build install
 
       - name: Build libwebp
         run: |
           git clone -b v$WEBP_VERSION https://chromium.googlesource.com/webm/libwebp libwebp-src
-          cd libwebp-src && ./autogen.sh && CC="clang -arch ${{ matrix.arch }}" CXX="clang++ -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --host=${{ matrix.arch }}-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch ${{ matrix.arch }}" LDFLAGS="-arch ${{ matrix.arch }}" && make -j$(sysctl -n hw.ncpu) install
+          cd libwebp-src && ./autogen.sh && CC="clang -arch ${{ matrix.arch }}" CXX="clang++ -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --host=${{ matrix.arch }}-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0" LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0" && make -j$(sysctl -n hw.ncpu) install
 
       - name: Build zlib
         run: |
           git clone -b v$ZLIB_VERSION https://github.com/madler/zlib.git zlib-src
-          cd zlib-src && CC="clang -arch ${{ matrix.arch }}" ./configure --prefix=${{ env.INSTALL_DIR }} --static && make -j$(sysctl -n hw.ncpu) install
+          cd zlib-src && CC="clang -arch ${{ matrix.arch }} -mmacosx-version-min=11.0" ./configure --prefix=${{ env.INSTALL_DIR }} --static && make -j$(sysctl -n hw.ncpu) install
 
       - name: Build Brotli
         run: |
@@ -345,48 +281,39 @@ jobs:
         run: |
           git clone -b v$JXL_VERSION https://github.com/libjxl/libjxl.git libjxl-src
           cd libjxl-src && git submodule update --init --recursive
-          mkdir -p cmake_build && cd cmake_build && cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_DIR }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS="-arch ${{ matrix.arch }}" -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-arch ${{ matrix.arch }}" -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_BENCHMARKS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF -DJPEGXL_ENABLE_MANPAGES=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF -DBrotli_INCLUDE_DIR=${{ env.INSTALL_DIR }}/include -DBrotli_LIBRARY=${{ env.INSTALL_DIR }}/lib/libbrotlicommon.a -DHWY_INCLUDE_DIR=${{ env.INSTALL_DIR }}/include -DHWY_LIBRARY=${{ env.INSTALL_DIR }}/lib/libhwy.a && make -j$(sysctl -n hw.ncpu) install
+          mkdir -p cmake_build && cd cmake_build && cmake .. -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_DIR }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0" -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0" -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_BENCHMARKS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF -DJPEGXL_ENABLE_MANPAGES=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF -DBrotli_INCLUDE_DIR=${{ env.INSTALL_DIR }}/include -DBrotli_LIBRARY=${{ env.INSTALL_DIR }}/lib/libbrotlicommon.a -DHWY_INCLUDE_DIR=${{ env.INSTALL_DIR }}/include -DHWY_LIBRARY=${{ env.INSTALL_DIR }}/lib/libhwy.a && make -j$(sysctl -n hw.ncpu) install
 
       - name: Configure and Build FFmpeg
         run: |
           cd FFmpeg-src
+          
+          # 1. Identity Hijack: Rename internal decoder names (Precise Struct Member Match)
+          sed -i '' 's|\.p\.name\s*=\s*"libdav1d"|.p.name = "av1"|g' libavcodec/libdav1d.c
+          sed -i '' 's|\.p\.wrapper_name\s*=\s*"libdav1d"|.p.wrapper_name = "av1"|g' libavcodec/libdav1d.c
+          sed -i '' 's|\.p\.name\s*=\s*"libwebp"|.p.name = "webp"|g' libavcodec/libwebp*.c
+          sed -i '' 's|\.p\.wrapper_name\s*=\s*"libwebp"|.p.wrapper_name = "webp"|g' libavcodec/libwebp*.c
+          
+          # 2. Nuclear Bypass: Manually enable libs and set flags (bypass pkg-config)
+          sed -i '' "s|require_pkg_config libdav1d.*|enable libdav1d; libdav1d_cflags='-I${{ env.INSTALL_DIR }}/include'; libdav1d_extralibs='-L${{ env.INSTALL_DIR }}/lib -ldav1d'|g" configure
+          sed -i '' "s|require_pkg_config libwebp.*|enable libwebp; libwebp_cflags='-I${{ env.INSTALL_DIR }}/include'; libwebp_extralibs='-L${{ env.INSTALL_DIR }}/lib -lwebp -lsharpyuv'|g" configure
+          sed -i '' "s|require_pkg_config libjxl.*|enable libjxl; libjxl_cflags='-I${{ env.INSTALL_DIR }}/include'; libjxl_extralibs='-L${{ env.INSTALL_DIR }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon'|g" configure
+          sed -i '' "s|require_pkg_config libzimg.*|enable libzimg; libzimg_cflags='-I${{ env.INSTALL_DIR }}/include'; libzimg_extralibs='-L${{ env.INSTALL_DIR }}/lib -lzimg'|g" configure
+          
           export PKG_CONFIG_PATH="${{ env.INSTALL_DIR }}/lib/pkgconfig"
+          export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
           export PKG_CONFIG_ALLOW_CROSS=1
           
-          echo "Diagnosing libdav1d..."
-          file ${{ env.INSTALL_DIR }}/lib/libdav1d.a
-          pkg-config --modversion dav1d
-          
-          echo "Before patch:"
-          grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
-          # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
-          sed -i '' 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_open "-ldav1d"/g' configure
-          echo "After patch:"
-          grep "libdav1d" configure | head -n 5
-          
-          # Source Patches for Decoder Priority
-          sed -i '' 's/"webp"/"webp_native"/g' libavcodec/webp.c
-          sed -i '' 's/"libwebp"/"webp"/g' libavcodec/libwebp*.c || true
-          sed -i '' 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-          sed -i '' 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-          
-          export libdav1d_cflags="-I${{ env.INSTALL_DIR }}/include"
-          # macOS doesn't need -lpthread (fixed in libSystem)
-          export libdav1d_libs="-L${{ env.INSTALL_DIR }}/lib -ldav1d"
-          export libwebp_cflags="-I${{ env.INSTALL_DIR }}/include"
-          export libwebp_libs="-L${{ env.INSTALL_DIR }}/lib -lwebp -lsharpyuv"
-          export libjxl_cflags="-I${{ env.INSTALL_DIR }}/include"
-          export libjxl_libs="-L${{ env.INSTALL_DIR }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
-          export libzimg_cflags="-I${{ env.INSTALL_DIR }}/include"
-          export libzimg_libs="-L${{ env.INSTALL_DIR }}/lib -lzimg"
           ./configure \
             --arch=${{ matrix.arch }} --cc="clang -arch ${{ matrix.arch }}" --cxx="clang++ -arch ${{ matrix.arch }}" --target-os=darwin \
-            --extra-cflags="-I${{ env.INSTALL_DIR }}/include" --extra-ldflags="-L${{ env.INSTALL_DIR }}/lib" \
-            --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread -lm -lstdc++" \
+            --extra-cflags="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0 -I${{ env.INSTALL_DIR }}/include" \
+            --extra-ldflags="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0 -L${{ env.INSTALL_DIR }}/lib" \
+            --extra-asflags="-arch ${{ matrix.arch }} -mmacosx-version-min=11.0" \
+            --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -ldav1d -lpthread -lm -lstdc++" \
             --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
             --enable-protocol=file,http,https,tcp,tls \
             --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-            --enable-decoder=h264,hevc,vp9,av1,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+            --enable-decoder=h264,hevc,vp9,libdav1d,libwebp,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+            --disable-decoder=av1,webp \
             --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
             --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
           make -j$(sysctl -n hw.ncpu)
