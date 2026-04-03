@@ -163,7 +163,22 @@ jobs:
           cd FFmpeg-src
           case "${{ matrix.target }}" in
             linux-x86_64)
-              export PKG_CONFIG_PATH=${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig
+              export PKG_CONFIG_PATH="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
+              
+              echo "Diagnosing libdav1d..."
+              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
+              pkg-config --modversion dav1d
+              pkg-config --libs --static dav1d
+              
+              echo "Before patch:"
+              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
+              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
+              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d -lpthread -ldl"/g' configure
+              echo "After patch:"
+              grep "libdav1d" configure | head -n 5
+              
+              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
+              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
               ./configure --arch=x86_64 --cpu=generic --target-os=linux \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.OPENSSL_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.OPENSSL_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
@@ -178,15 +193,21 @@ jobs:
                 --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
               ;;
             linux-arm64)
-              export PKG_CONFIG_LIBDIR=${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig
-              export libdav1d_CFLAGS="-I${{ env.DAV1D_INSTALL }}/include"
-              export libdav1d_LIBS="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d"
-              export libwebp_CFLAGS="-I${{ env.WEBP_INSTALL }}/include"
-              export libwebp_LIBS="-L${{ env.WEBP_INSTALL }}/lib -lwebp -lsharpyuv"
-              export libjxl_CFLAGS="-I${{ env.JXL_INSTALL }}/include"
-              export libjxl_LIBS="-L${{ env.JXL_INSTALL }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
-              export libzimg_CFLAGS="-I${{ env.ZIMG_INSTALL }}/include"
-              export libzimg_LIBS="-L${{ env.ZIMG_INSTALL }}/lib -lzimg"
+              export PKG_CONFIG_LIBDIR="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.OPENSSL_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
+              
+              echo "Diagnosing libdav1d..."
+              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
+              pkg-config --modversion dav1d
+
+              echo "Before patch:"
+              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
+              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
+              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d -lpthread -ldl"/g' configure
+              echo "After patch:"
+              grep "libdav1d" configure | head -n 5
+              
+              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
+              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
               ./configure --arch=arm64 --cpu=generic --target-os=linux --cross-prefix=aarch64-linux-gnu- \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.OPENSSL_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.OPENSSL_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
@@ -201,18 +222,26 @@ jobs:
                 --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
               ;;
             windows-x86_64)
-              # Debug info: verify pkg-config can see dav1d
-              export PKG_CONFIG_PATH=${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig
-              export PKG_CONFIG_LIBDIR=/usr/x86_64-w64-mingw32/lib/pkgconfig
-              pkg-config --modversion dav1d || echo "dav1d not found via pkg-config"
-              export libdav1d_CFLAGS="-I${{ env.DAV1D_INSTALL }}/include"
-              export libdav1d_LIBS="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread"
-              export libwebp_CFLAGS="-I${{ env.WEBP_INSTALL }}/include"
-              export libwebp_LIBS="-L${{ env.WEBP_INSTALL }}/lib -lwebp -lsharpyuv"
-              export libjxl_CFLAGS="-I${{ env.JXL_INSTALL }}/include"
-              export libjxl_LIBS="-L${{ env.JXL_INSTALL }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
-              export libzimg_CFLAGS="-I${{ env.ZIMG_INSTALL }}/include"
-              export libzimg_LIBS="-L${{ env.ZIMG_INSTALL }}/lib -lzimg"
+              # Set PKG_CONFIG_PATH to our custom installs
+              export PKG_CONFIG_PATH="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
+              export PKG_CONFIG_LIBDIR="/usr/x86_64-w64-mingw32/lib/pkgconfig"
+              export PKG_CONFIG_ALLOW_CROSS=1
+              
+              echo "Diagnosing libdav1d..."
+              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
+              pkg-config --modversion dav1d
+              pkg-config --libs --static dav1d
+              
+              echo "Before patch:"
+              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
+              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
+              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d -lpthread -ldl"/g' configure
+              echo "After patch:"
+              grep "libdav1d" configure | head -n 5
+              
+              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
+              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
+              
               ./configure --arch=x86_64 --cpu=generic --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32- --enable-schannel \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
@@ -303,15 +332,29 @@ jobs:
       - name: Configure and Build FFmpeg
         run: |
           cd FFmpeg-src
-          export PKG_CONFIG_PATH=${{ env.INSTALL_DIR }}/lib/pkgconfig
-          export libdav1d_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
-          export libdav1d_LIBS="-L${{ env.INSTALL_DIR }}/lib -ldav1d -lpthread"
-          export libwebp_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
-          export libwebp_LIBS="-L${{ env.INSTALL_DIR }}/lib -lwebp -lsharpyuv"
-          export libjxl_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
-          export libjxl_LIBS="-L${{ env.INSTALL_DIR }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
-          export libzimg_CFLAGS="-I${{ env.INSTALL_DIR }}/include"
-          export libzimg_LIBS="-L${{ env.INSTALL_DIR }}/lib -lzimg"
+          export PKG_CONFIG_PATH="${{ env.INSTALL_DIR }}/lib/pkgconfig"
+          export PKG_CONFIG_ALLOW_CROSS=1
+          
+          echo "Diagnosing libdav1d..."
+          file ${{ env.INSTALL_DIR }}/lib/libdav1d.a
+          pkg-config --modversion dav1d
+          
+          echo "Before patch:"
+          grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
+          # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
+          sed -i '' 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d"/g' configure
+          echo "After patch:"
+          grep "libdav1d" configure | head -n 5
+          
+          export libdav1d_cflags="-I${{ env.INSTALL_DIR }}/include"
+          # macOS doesn't need -lpthread (fixed in libSystem)
+          export libdav1d_libs="-L${{ env.INSTALL_DIR }}/lib -ldav1d"
+          export libwebp_cflags="-I${{ env.INSTALL_DIR }}/include"
+          export libwebp_libs="-L${{ env.INSTALL_DIR }}/lib -lwebp -lsharpyuv"
+          export libjxl_cflags="-I${{ env.INSTALL_DIR }}/include"
+          export libjxl_libs="-L${{ env.INSTALL_DIR }}/lib -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon"
+          export libzimg_cflags="-I${{ env.INSTALL_DIR }}/include"
+          export libzimg_libs="-L${{ env.INSTALL_DIR }}/lib -lzimg"
           ./configure \
             --arch=${{ matrix.arch }} --cc="clang -arch ${{ matrix.arch }}" --cxx="clang++ -arch ${{ matrix.arch }}" --target-os=darwin \
             --extra-cflags="-I${{ env.INSTALL_DIR }}/include" --extra-ldflags="-L${{ env.INSTALL_DIR }}/lib" \
