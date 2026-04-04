@@ -177,6 +177,10 @@ jobs:
               echo "After patch:"
               grep "libdav1d" configure | head -n 5
               
+              # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
+              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
+              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
+              
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
               sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
@@ -210,6 +214,10 @@ jobs:
               sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d -lpthread -ldl"/g' configure
               echo "After patch:"
               grep "libdav1d" configure | head -n 5
+              
+              # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
+              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
+              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
               
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
@@ -248,6 +256,10 @@ jobs:
               sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d -lpthread -ldl"/g' configure
               echo "After patch:"
               grep "libdav1d" configure | head -n 5
+              
+              # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
+              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
+              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
               
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
@@ -360,6 +372,10 @@ jobs:
           sed -i '' 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d"/g' configure
           echo "After patch:"
           grep "libdav1d" configure | head -n 5
+          
+          # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
+          sed -i '' 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
+          sed -i '' 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
           
           # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
           ls libavcodec/libwebp* || echo "no libwebp files"
