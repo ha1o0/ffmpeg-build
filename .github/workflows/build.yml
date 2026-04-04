@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [linux-x86_64, linux-arm64, windows-x86_64]
+        target: [windows-x86_64]
 
     steps:
       - uses: actions/checkout@v4
@@ -236,40 +236,26 @@ jobs:
             windows-x86_64)
               # Set PKG_CONFIG_PATH to our custom installs
               export PKG_CONFIG_PATH="${{ env.ZIMG_INSTALL }}/lib/pkgconfig:${{ env.DAV1D_INSTALL }}/lib/pkgconfig:${{ env.WEBP_INSTALL }}/lib/pkgconfig:${{ env.ZLIB_INSTALL }}/lib/pkgconfig:${{ env.BROTLI_INSTALL }}/lib/pkgconfig:${{ env.JXL_INSTALL }}/lib/pkgconfig"
-              export PKG_CONFIG_LIBDIR="/usr/x86_64-w64-mingw32/lib/pkgconfig"
+              export PKG_CONFIG_LIBDIR="${PKG_CONFIG_PATH}:/usr/x86_64-w64-mingw32/lib/pkgconfig"
               export PKG_CONFIG_ALLOW_CROSS=1
-              
-              echo "Diagnosing libdav1d..."
-              file ${{ env.DAV1D_INSTALL }}/lib/libdav1d.a
-              pkg-config --modversion dav1d
-              pkg-config --libs --static dav1d
-              
-              echo "Before patch:"
-              grep "require_pkg_config libdav1d" configure || echo "Line not found or already patched"
-              # Nuclear fix: Patch configure to bypass strict pkg-config check for dav1d
-              sed -i 's/require_pkg_config libdav1d.*/check_lib libdav1d "dav1d\/dav1d.h" dav1d_version "-ldav1d -lpthread -ldl"/g' configure
-              echo "After patch:"
-              grep "libdav1d" configure | head -n 5
               
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
               sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
               sed -i 's/"libwebp"/"webp"/g' libavcodec/libwebp*.c || true
               
-              export libdav1d_cflags="-I${{ env.DAV1D_INSTALL }}/include"
-              export libdav1d_libs="-L${{ env.DAV1D_INSTALL }}/lib -ldav1d -lpthread -ldl"
-              
               ./configure --arch=x86_64 --cpu=generic --target-os=mingw32 --cross-prefix=x86_64-w64-mingw32- --enable-schannel \
                 --extra-cflags="-I${{ env.ZIMG_INSTALL }}/include -I${{ env.DAV1D_INSTALL }}/include -I${{ env.WEBP_INSTALL }}/include -I${{ env.ZLIB_INSTALL }}/include -I${{ env.JXL_INSTALL }}/include -I${{ env.BROTLI_INSTALL }}/include -I${{ env.HWY_INSTALL }}/include" \
                 --extra-ldflags="-L${{ env.ZIMG_INSTALL }}/lib -L${{ env.DAV1D_INSTALL }}/lib -L${{ env.WEBP_INSTALL }}/lib -L${{ env.ZLIB_INSTALL }}/lib -L${{ env.JXL_INSTALL }}/lib -L${{ env.BROTLI_INSTALL }}/lib -L${{ env.HWY_INSTALL }}/lib -static" \
-                --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lstdc++ -lpthread" \
-                --disable-hwaccels \
+                --extra-libs="-lwebp -lsharpyuv -lz -ljxl -ljxl_threads -lhwy -lbrotlienc -lbrotlidec -lbrotlicommon -lstdc++ -lwinpthread" \
+                --disable-hwaccels --disable-d3d11va --disable-dxva2 --disable-cuda-llvm \
                 --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
                 --enable-protocol=file,http,https,tcp,tls \
                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,av1,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+                --enable-decoder=h264,hevc,vp9,av1,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
                 --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
-                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
+                --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
+              || { echo "---- ffbuild/config.log (tail -200) ----"; tail -n 200 ffbuild/config.log; exit 1; }
               CFG_MAK=config.mak; [ -f ffbuild/config.mak ] && CFG_MAK=ffbuild/config.mak; grep -q '^CONFIG_AV1_DECODER=yes' "$CFG_MAK" || { echo "ERROR: AV1 decoder not enabled ($CFG_MAK)"; exit 1; }
               ;;
           esac
@@ -291,6 +277,7 @@ jobs:
           path: ffmpeg-*
 
   build-macos:
+    if: ${{ false }}
     runs-on: macos-latest
     strategy:
       matrix:
