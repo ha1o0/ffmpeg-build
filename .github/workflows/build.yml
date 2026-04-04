@@ -177,10 +177,6 @@ jobs:
               echo "After patch:"
               grep "libdav1d" configure | head -n 5
               
-              # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
-              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-              
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
               sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
@@ -197,7 +193,7 @@ jobs:
                 --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
                 --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
                 --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
                 --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
               ;;
@@ -215,10 +211,6 @@ jobs:
               echo "After patch:"
               grep "libdav1d" configure | head -n 5
               
-              # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
-              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-              
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
               sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
@@ -235,7 +227,7 @@ jobs:
                 --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
                 --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
                 --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
                 --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
               ;;
@@ -257,10 +249,6 @@ jobs:
               echo "After patch:"
               grep "libdav1d" configure | head -n 5
               
-              # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
-              sed -i 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-              sed -i 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-              
               # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
               ls libavcodec/libwebp* || echo "no libwebp files"
               sed -i 's/"webp"/"webp_native"/g' libavcodec/webp.c
@@ -276,7 +264,7 @@ jobs:
                 --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
                 --enable-protocol=file,http,https,tcp,tls \
                 --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+                --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
                 --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
                 --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static" \
               ;;
@@ -373,10 +361,6 @@ jobs:
           echo "After patch:"
           grep "libdav1d" configure | head -n 5
           
-          # Seamless AV1 Fix: Patch source to make libdav1d the default 'av1' decoder
-          sed -i '' 's/"av1"/"av1_native"/g' libavcodec/av1dec.c || true
-          sed -i '' 's/"libdav1d"/"av1"/g' libavcodec/libdav1d.c || true
-          
           # Seamless Animated WebP Fix: Patch source to make libwebp the default 'webp' decoder
           ls libavcodec/libwebp* || echo "no libwebp files"
           sed -i '' 's/"webp"/"webp_native"/g' libavcodec/webp.c
@@ -398,7 +382,7 @@ jobs:
             --disable-everything --enable-ffmpeg --enable-version3 --enable-libwebp --enable-libjxl --enable-zlib \
             --enable-protocol=file,http,https,tcp,tls \
             --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,heif,avif,jxl,ico,webp,psd,dds,j2k,jp2,pnm,sgi \
-            --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,av1,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
+            --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,png,webp,libwebp,gif,bmp,tiff,ico,targa,pcx,xbm,alias_pix,sunrast,xwd,jxl,libjxl,psd,dds,jpeg2000,pam,pbm,pgm,ppm,sgi \
             --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif \
             --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata --enable-libzimg --enable-libdav1d --enable-filter=scale,format,zscale,tonemap --enable-encoder=mjpeg,png,libwebp,webp --enable-muxer=image2 --enable-avcodec --enable-avformat --enable-avutil --enable-swscale --disable-doc --disable-debug --enable-network --disable-ffplay --disable-ffprobe --pkg-config=pkg-config --pkg-config-flags="--static"
           make -j$(sysctl -n hw.ncpu)
