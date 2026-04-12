@@ -143,7 +143,8 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe \
+              --enable-ffprobe \
+              --enable-small \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
               --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
@@ -152,7 +153,9 @@ jobs:
               --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -lpthread -lm -ldl -lstdc++"
 
             make -j$(nproc)
+            strip ffmpeg ffprobe
             cp ffmpeg ../ffmpeg-linux-x86_64
+            cp ffprobe ../ffprobe-linux-x86_64
             ;;
 
           ################################################
@@ -257,7 +260,8 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe \
+              --enable-ffprobe \
+              --enable-small \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
               --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$OPENSSL_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
@@ -266,7 +270,9 @@ jobs:
               --extra-libs="-lssl -lcrypto -lwebp -lsharpyuv -lz -lpthread -lm -ldl -lstdc++"
 
             make -j$(nproc)
+            aarch64-linux-gnu-strip ffmpeg ffprobe
             cp ffmpeg ../ffmpeg-linux-arm64
+            cp ffprobe ../ffprobe-linux-arm64
             ;;
 
           ################################################
@@ -360,7 +366,8 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe \
+              --enable-ffprobe \
+              --enable-small \
               --pkg-config=pkg-config \
               --pkg-config-flags="--static" \
               --extra-cflags="-I$ZIMG_INSTALL/include -I$DAV1D_INSTALL/include -I$WEBP_INSTALL/include -I$ZLIB_INSTALL/include" \
@@ -369,7 +376,9 @@ jobs:
               --extra-libs="-lwebp -lsharpyuv -lz -lstdc++ -lpthread"
 
             make -j$(nproc)
+            x86_64-w64-mingw32-strip ffmpeg.exe ffprobe.exe
             cp ffmpeg.exe ../ffmpeg-windows-x86_64.exe
+            cp ffprobe.exe ../ffprobe-windows-x86_64.exe
             ;;
 
           esac
@@ -378,7 +387,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-${{ matrix.target }}
-          path: ffmpeg-*
+          path: |
+            ffmpeg-*
+            ffprobe-*
 
 
 ############################################################
@@ -475,13 +486,16 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe \
+              --enable-ffprobe \
+              --enable-small \
               --extra-cflags="-I$(pwd)/../dav1d-install/include -I$(pwd)/../webp-install/include -I$(pwd)/../zlib-install/include" \
               --extra-ldflags="-L$(pwd)/../dav1d-install/lib -L$(pwd)/../webp-install/lib -L$(pwd)/../zlib-install/lib" \
               --extra-libs="-lwebp -lsharpyuv -lz -lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
+            strip ffmpeg ffprobe
             cp ffmpeg ../ffmpeg-macos-x86_64
+            cp ffprobe ../ffprobe-macos-x86_64
 
           else
 
@@ -553,13 +567,16 @@ jobs:
               --disable-debug \
               --enable-network \
               --disable-ffplay \
-              --disable-ffprobe \
+              --enable-ffprobe \
+              --enable-small \
               --extra-cflags="-I$(pwd)/../dav1d-install/include -I$(pwd)/../webp-install/include -I$(pwd)/../zlib-install/include" \
               --extra-ldflags="-L$(pwd)/../dav1d-install/lib -L$(pwd)/../webp-install/lib -L$(pwd)/../zlib-install/lib" \
               --extra-libs="-lwebp -lsharpyuv -lz -lpthread -lm -lstdc++"
 
             make -j$(sysctl -n hw.ncpu)
+            strip ffmpeg ffprobe
             cp ffmpeg ../ffmpeg-macos-arm64
+            cp ffprobe ../ffprobe-macos-arm64
 
           fi
 
@@ -567,4 +584,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-macos-${{ matrix.arch }}
-          path: ffmpeg-macos-*
+          path: |
+            ffmpeg-macos-*
+            ffprobe-macos-*
