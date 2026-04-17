@@ -126,7 +126,7 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
@@ -240,7 +240,7 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
@@ -343,7 +343,7 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,bmp,tiff,ico,tile,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
@@ -458,7 +458,7 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
@@ -536,7 +536,7 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
               --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
               --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
