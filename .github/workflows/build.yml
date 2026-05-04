@@ -110,7 +110,7 @@ jobs:
             export OPENSSL_INSTALL=$GITHUB_WORKSPACE/openssl-install
             export WEBP_INSTALL=$GITHUB_WORKSPACE/libwebp-install
             export ZLIB_INSTALL=$GITHUB_WORKSPACE/zlib-install
-            
+
             pkg-config --modversion zimg || echo "zimg not found"
             pkg-config --modversion dav1d || echo "dav1d not found"
 
@@ -126,10 +126,10 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif,jpeg2000 \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata,mjpeg_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
@@ -240,10 +240,10 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tls,tcp,tls_openssl,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif,jpeg2000 \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata,mjpeg_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
@@ -343,10 +343,10 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv1,flv,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,bmp,tiff,ico,tile,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif,jpeg2000 \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata,mjpeg_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
@@ -411,7 +411,7 @@ jobs:
             # Build zimg
             git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
             cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=x86_64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-            
+
             # Build dav1d
             echo "[binaries]" > cross_mac_x86_64.txt
             echo "c = ['clang', '-arch', 'x86_64']" >> cross_mac_x86_64.txt
@@ -458,10 +458,10 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif,jpeg2000 \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata,mjpeg_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
@@ -488,7 +488,7 @@ jobs:
             # Build zimg
             git clone --recursive -b $ZIMG_VERSION https://github.com/sekrit-twc/zimg.git zimg-src
             cd zimg-src && ./autogen.sh && ./configure --prefix=$(pwd)/_install --host=arm64-apple-darwin --disable-shared --enable-static --with-pic CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" && make -j$(sysctl -n hw.ncpu) && make install && cd ..
-            
+
             # Build dav1d
             echo "[binaries]" > cross_mac_arm64.txt
             echo "c = ['clang', '-arch', 'arm64']" >> cross_mac_arm64.txt
@@ -536,10 +536,10 @@ jobs:
               --enable-libwebp \
               --enable-zlib \
               --enable-protocol=file,http,https,tcp,tls,dns,httpproxy,crypto \
-              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,gif,webp,ico,psd \
+              --enable-demuxer=mov,matroska,avi,flv,mpegts,mpeg,mpegps,asf,ogg,rm,mxf,mpegvideo,image2,mjpeg,jpegls,dicom,tiff,gif,webp,ico,psd \
               --enable-decoder=h264,hevc,vp9,libdav1d,mpeg1video,mpeg2video,mpeg4,msmpeg4v3,wmv3,rv10,rv20,rv30,rv40,h263,h263p,h263i,mp3,mp2,ac3,aac,mpegvideo,flv,flv1,vp6,vp6f,vp6a,theora,dnxhd,prores,mjpeg,mjpegb,jpegls,ljpeg,png,webp,libwebp,gif,tile,bmp,tiff,ico,jpeg2000,psd,exr,targa,dds,pcx,sgi,xpm,xbm,svg \
-              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,png,webp,gif,jpeg2000 \
-              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata \
+              --enable-parser=h264,hevc,mpeg4video,mpegvideo,av1,h263,mpegaudio,ac3,mjpeg,jpegls,png,webp,gif,jpeg2000 \
+              --enable-bsf=hevc_metadata,av1_metadata,vp9_metadata,mjpeg_metadata \
               --enable-libzimg \
               --enable-libdav1d \
               --enable-filter=scale,format,zscale,tonemap \
